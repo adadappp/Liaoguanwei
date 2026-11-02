@@ -9,6 +9,7 @@ import { demoAnalysis } from "@/lib/demo";
 import { AtlasPreview } from "@/components/atlas-preview";
 import { useAtlasMotion } from "@/hooks/use-atlas-motion";
 import { SearchFilter } from "@/components/search-filter";
+import { InstallApp } from "@/components/install-app";
 
 const roleExamples = ["大模型应用开发", "前端工程师", "机器学习工程师", "Java 后端开发"];
 const cityOptions = [{ value: "", label: "不限城市" }, ...["北京", "上海", "深圳", "杭州", "广州", "成都", "武汉", "南京", "西安", "苏州", "全国远程"].map(value => ({ value, label: value }))];
@@ -89,6 +90,7 @@ export default function Home() {
             <div className="search-options"><SearchFilter label="目标城市" icon={MapPin} value={city} options={cityOptions} disabled={loading} open={openFilter === "city"} onOpenChange={open => setOpenFilter(open ? "city" : null)} onChange={setCity} /><span className="option-divider" /><SearchFilter label="经验范围" icon={BriefcaseBusiness} value={experience} options={experienceOptions} disabled={loading} open={openFilter === "experience"} onOpenChange={open => setOpenFilter(open ? "experience" : null)} onChange={setExperience} /><span className="search-hint"><ShieldCheck size={13} />每项技能，都有据可查</span></div></form>
           {loading && <div className="search-status" role="status"><LoaderCircle size={15} className="spin" />{phase}<button onClick={() => controller.current?.abort()}>取消</button></div>}{error && <div role="alert" className="inline-error">{error}</div>}
           <div className="example-searches"><span>试试这些方向</span>{roleExamples.map(r => <button key={r} disabled={loading} onClick={() => { setRole(r); searchInput.current?.focus(); }}>{r}<ArrowUpRight size={12} /></button>)}</div><button className="demo-link" disabled={loading} onClick={showDemo}>还没想好？先看看一份技能图鉴<ArrowRight size={14} /><span className="demo-tag">演示</span></button>
+          <InstallApp />
         </section>
         <AtlasPreview onOpen={showDemo} />
         <section className="journey-section" aria-label="使用流程"><div className="section-intro" data-reveal="visible"><span className="eyebrow muted">A CLEARER PATH FORWARD</span><h2>把一个方向，变成清晰的行动</h2><p>从了解岗位，到开始学习，按自己的节奏来。</p></div><div className="journey-grid">{[

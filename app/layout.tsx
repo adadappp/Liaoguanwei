@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { CursorTrail } from "@/components/cursor-trail";
 import "./globals.css";
 import "./atlas.css";
@@ -7,11 +7,16 @@ import "./motion.css";
 export const metadata: Metadata = {
   title: "求职学习图鉴 · 把方向变成下一步",
   description: "从真实招聘要求发现岗位技能，自主选择学习内容，写下你的求职学习计划。",
+  applicationName: "求职学习图鉴",
+  appleWebApp: { capable: true, title: "求职图鉴", statusBarStyle: "black-translucent" },
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
+    apple: "/icons/apple-touch-icon.png",
   },
 };
+
+export const viewport: Viewport = { themeColor: "#000000", colorScheme: "dark" };
 
 export default function RootLayout({
   children,
@@ -20,6 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN">
+      <head><link rel="manifest" href="/manifest.webmanifest" crossOrigin="use-credentials" /></head>
       <body className="antialiased">{children}<CursorTrail /></body>
     </html>
   );
