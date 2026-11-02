@@ -2,26 +2,32 @@
 
 import { useEffect, useState } from "react";
 
+const bookOutline = "M300 100C220 51 120 45 30 75V330C120 300 220 311 300 360C380 311 480 300 570 330V75C480 45 380 51 300 100Z";
 
 export function StartupTransition() {
-  const [ready, setReady] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const [completedCycle, setCompletedCycle] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const ready = hydrated && completedCycle;
   useEffect(() => {
-    // 等待首页完成挂载并有机会绘制，不等待网络空闲，也不增加最短展示时间。
-    let second = 0;
-    const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => setReady(true));
-    });
-    return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => { if (preference.matches) setCompletedCycle(true); };
+    sync(); setHydrated(true);
+    preference.addEventListener("change", sync);
+    return () => preference.removeEventListener("change", sync);
   }, []);
   if (dismissed) return null;
   return <div className="atlas-startup" data-ready={ready} aria-hidden="true"
     onAnimationEnd={event => {
       if (event.target === event.currentTarget && (event.animationName === "startup-out" || event.animationName === "startup-safety")) setDismissed(true);
     }}>
-    <div className="atlas-startup-content">
-      <div className="atlas-startup-mark"><svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 7c-3-2-6-2-9-1v13c3-1 6-1 9 1 3-2 6-2 9-1V6c-3-1-6-1-9 1Z"/><path d="M12 7v13"/></svg></div>
-      <div className="atlas-startup-track" />
-    </div>
+    <svg className="atlas-startup-book" viewBox="0 0 600 420" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+      <g className="startup-book-outline"><path d={bookOutline}/><path d="M300 100V360"/></g>
+      <g className="startup-book-light">
+        <path className="startup-book-sweep" d={bookOutline} pathLength="100"
+          onAnimationIteration={() => setCompletedCycle(true)} />
+        <path className="startup-book-spine" d="M300 100V360" pathLength="100"/>
+      </g>
+    </svg>
   </div>;
 }
