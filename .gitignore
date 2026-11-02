@@ -1,0 +1,12 @@
+# Visual Studio build output and local IDE settings
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+
+# Local user data: never commit API keys, query caches, or vocabulary history
+config.json
+cache.json
+vocab.json
+*.log
