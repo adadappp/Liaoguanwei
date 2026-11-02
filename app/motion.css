@@ -55,4 +55,6 @@ button svg,a svg{transition:transform .3s var(--motion-ease)}
 @keyframes filter-menu-open{from{opacity:0;transform:translateY(-5px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes filter-menu-close{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(-3px) scale(.985)}}
 @media(max-width:720px){.search-filter{gap:5px;font-size:10px}.filter-arrow{width:25px;height:29px}.search-filter-menu{min-width:156px}.search-filter-option{min-height:36px}}
-@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.atlas-app [data-reveal]{opacity:1!important;translate:0 0!important}.showcase-device,.showcase-stage:hover .showcase-device{transform:none!important}.primary-button:not(:disabled):hover,.primary-button:not(:disabled):active{transform:none!important}}
+.cursor-trail{position:fixed;inset:0;z-index:100;pointer-events:none!important;width:100vw;height:100dvh;contain:strict}
+@media(hover:none),(pointer:coarse){.cursor-trail{display:none}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.atlas-app [data-reveal]{opacity:1!important;translate:0 0!important}.showcase-device,.showcase-stage:hover .showcase-device{transform:none!important}.primary-button:not(:disabled):hover,.primary-button:not(:disabled):active{transform:none!important}.cursor-trail{display:none}}

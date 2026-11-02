@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CursorTrail } from "@/components/cursor-trail";
 import "./globals.css";
 import "./atlas.css";
 import "./motion.css";
@@ -19,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">{children}<CursorTrail /></body>
     </html>
   );
 }
