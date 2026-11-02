@@ -39,3 +39,9 @@
 ## 开源致谢
 
 组件：shadcn/ui（MIT，https://github.com/shadcn-ui/ui）。图标：Lucide（ISC，https://lucide.dev/license）。使用的其余开源依赖许可证保留在各 npm 包中。视觉插图为 CSS 和图标组合，无远程图片依赖。产品设计位于上一级 `DESIGN.md`。
+
+## 界面与动效
+
+参考 Apple 中国官网首页及 MacBook Pro 产品页的大标题、留白和分段呈现，采用原创的产品功能预览。界面保持黑白配色；首屏分层进场、滚动渐显、导航背景变化、按钮和技能选择反馈均使用原生 CSS 与 IntersectionObserver，无额外动画依赖。视口观察完成后会取消观察；没有逐帧滚动监听，也不接管滚动。系统启用减少动态效果时，CSS 和运行时代码均关闭位移、缩放和渐显隐藏。JavaScript 或视口观察不可用时，正文默认可见。
+
+参考页面：https://www.apple.com.cn/ ，https://www.apple.com.cn/macbook-pro/proled-xdr-display/ 。功能预览明确标注演示内容，不作为真实招聘数据。

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./atlas.css";
+import "./motion.css";
 
 export const metadata: Metadata = {
   title: "求职学习图鉴 · 把方向变成下一步",

@@ -6,11 +6,14 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { type Analysis, type Skill, type Plan, type Task, STORAGE_KEY, uid, blankPlan, blankTask, backup, parseBackup, safeUrl } from "@/lib/atlas";
 import { demoAnalysis } from "@/lib/demo";
+import { AtlasPreview } from "@/components/atlas-preview";
+import { useAtlasMotion } from "@/hooks/use-atlas-motion";
 
 const roleExamples = ["大模型应用开发", "前端工程师", "机器学习工程师", "Java 后端开发"];
 const displayTime = (value: string) => new Date(value).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
 export default function Home() {
   const [view, setView] = useState<"explore" | "results" | "plans">("explore");
+  const { rootRef, topRef } = useAtlasMotion(view);
   const [role, setRole] = useState(""); const [city, setCity] = useState(""); const [experience, setExperience] = useState("");
   const [analysis, setAnalysis] = useState<Analysis | null>(null); const [loading, setLoading] = useState(false); const [phase, setPhase] = useState(""); const [error, setError] = useState("");
   const [selected, setSelected] = useState<string[]>([]); const [category, setCategory] = useState("全部技能"); const [filter, setFilter] = useState(""); const [order, setOrder] = useState("frequency");
@@ -67,7 +70,8 @@ export default function Home() {
   const visibleSkills = (analysis?.skills || []).filter(s => (category === "全部技能" || s.category === category) && `${s.name} ${s.description}`.toLowerCase().includes(filter.toLowerCase())).sort((a, b) => order === "frequency" ? b.evidence.length - a.evidence.length : a.name.localeCompare(b.name, "zh-CN"));
   const allCategories = ["全部技能", ...new Set(analysis?.skills.map(s => s.category) || [])];
   const completed = activePlan?.tasks.filter(t => t.status === "done").length || 0;
-  return <div className="atlas-app">
+  return <div className="atlas-app" ref={rootRef}>
+    <div className="scroll-sentinel" ref={topRef} aria-hidden="true" />
     <a className="skip-link" href="#main">跳到主要内容</a>
     <header className="site-header"><div className="header-inner">
       <button className="brand" onClick={() => go("explore")} aria-label="求职学习图鉴首页"><span className="brand-mark"><BookOpen size={23} strokeWidth={1.7} /></span><span>求职学习图鉴<small>CAREER ATLAS</small></span></button>
@@ -82,11 +86,12 @@ export default function Home() {
           {loading && <div className="search-status" role="status"><LoaderCircle size={15} className="spin" />{phase}<button onClick={() => controller.current?.abort()}>取消</button></div>}{error && <div role="alert" className="inline-error">{error}</div>}
           <div className="example-searches"><span>试试这些方向</span>{roleExamples.map(r => <button key={r} disabled={loading} onClick={() => { setRole(r); searchInput.current?.focus(); }}>{r}<ArrowUpRight size={12} /></button>)}</div><button className="demo-link" disabled={loading} onClick={showDemo}>还没想好？先看看一份技能图鉴<ArrowRight size={14} /><span className="demo-tag">演示</span></button>
         </section>
-        <section className="journey-section" aria-label="使用流程"><div className="section-intro"><span className="eyebrow muted">A CLEARER PATH FORWARD</span><h2>把一个方向，变成清晰的行动</h2><p>从了解岗位，到开始学习，按自己的节奏来。</p></div><div className="journey-grid">{[
+        <AtlasPreview onOpen={showDemo} />
+        <section className="journey-section" aria-label="使用流程"><div className="section-intro" data-reveal="visible"><span className="eyebrow muted">A CLEARER PATH FORWARD</span><h2>把一个方向，变成清晰的行动</h2><p>从了解岗位，到开始学习，按自己的节奏来。</p></div><div className="journey-grid">{[
           { n: "01", icon: Search, title: "找到真实要求", text: "实时检索招聘信息，了解企业实际在寻找什么样的技能。", label: "招聘正文 · 来源可追溯", className: "search-art" },
           { n: "02", icon: Layers3, title: "看清技能地图", text: "整理分散的岗位要求，查看技能在本次样本中的提及情况。", label: "技能归类 · 依据可查看", className: "skills-art" },
           { n: "03", icon: BookOpen, title: "写下你的计划", text: "已掌握的可以跳过。把想学的留下，安排自己的学习计划。", label: "自主选择 · 本地保存", className: "plan-art" },
-        ].map(item => <article className="journey-card" key={item.n}><div className={`card-art ${item.className}`} aria-hidden="true"><span className="art-circle" /><div className="mini-document"><item.icon size={18} /><i /><i /><i />{item.n === "02" && <span className="mini-chip">Python</span>}{item.n === "03" && <Check className="mini-check" size={18} />}</div><span className="step-number">{item.n}</span></div><div className="journey-card-body"><h3>{item.title}<ArrowUpRight size={17} /></h3><p>{item.text}</p><span>{item.label}</span></div></article>)}</div></section>
+        ].map(item => <article className="journey-card" data-reveal="visible" key={item.n}><div className={`card-art ${item.className}`} aria-hidden="true"><span className="art-circle" /><div className="mini-document"><item.icon size={18} /><i /><i /><i />{item.n === "02" && <span className="mini-chip">Python</span>}{item.n === "03" && <Check className="mini-check" size={18} />}</div><span className="step-number">{item.n}</span></div><div className="journey-card-body"><h3>{item.title}<ArrowUpRight size={17} /></h3><p>{item.text}</p><span>{item.label}</span></div></article>)}</div></section>
         <div className="privacy-strip"><ShieldCheck size={17} /><p>你的方向，由你决定。<span>免注册，学习计划保存在当前浏览器，支持导出备份。</span></p><span className="strip-line" /></div>
       </div>}
       {view === "results" && analysis && <div className="results-page content-width page-enter"><div className="breadcrumb"><button onClick={() => go("explore")}>探索岗位</button><ChevronRight size={13} /><span>岗位技能图鉴</span></div><div className="page-heading"><div><div className="eyebrow muted">YOUR SKILL ATLAS</div><h1>{analysis.role}{analysis.demo && <span className="demo-tag">演示数据</span>}</h1><div className="result-meta"><span><MapPin size={14} />{analysis.city || "不限城市"}</span><span><BriefcaseBusiness size={14} />{analysis.experience || "不限经验"}</span>{!analysis.demo && <span><Clock3 size={14} />{displayTime(analysis.retrievedAt)}</span>}</div></div><Button variant="outline" onClick={() => { setRole(analysis.role); go("explore"); }}><Search size={15} />重新搜索</Button></div>
