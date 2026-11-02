@@ -8,13 +8,17 @@ import { type Analysis, type Skill, type Plan, type Task, STORAGE_KEY, uid, blan
 import { demoAnalysis } from "@/lib/demo";
 import { AtlasPreview } from "@/components/atlas-preview";
 import { useAtlasMotion } from "@/hooks/use-atlas-motion";
+import { SearchFilter } from "@/components/search-filter";
 
 const roleExamples = ["大模型应用开发", "前端工程师", "机器学习工程师", "Java 后端开发"];
+const cityOptions = [{ value: "", label: "不限城市" }, ...["北京", "上海", "深圳", "杭州", "广州", "成都", "武汉", "南京", "西安", "苏州", "全国远程"].map(value => ({ value, label: value }))];
+const experienceOptions = [{ value: "", label: "不限经验" }, ...["实习 / 应届", "1–3 年", "3–5 年", "5 年以上"].map(value => ({ value, label: value }))];
 const displayTime = (value: string) => new Date(value).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
 export default function Home() {
   const [view, setView] = useState<"explore" | "results" | "plans">("explore");
   const { rootRef, topRef } = useAtlasMotion(view);
   const [role, setRole] = useState(""); const [city, setCity] = useState(""); const [experience, setExperience] = useState("");
+  const [openFilter, setOpenFilter] = useState<"city" | "experience" | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null); const [loading, setLoading] = useState(false); const [phase, setPhase] = useState(""); const [error, setError] = useState("");
   const [selected, setSelected] = useState<string[]>([]); const [category, setCategory] = useState("全部技能"); const [filter, setFilter] = useState(""); const [order, setOrder] = useState("frequency");
   const [evidence, setEvidence] = useState<Skill | null>(null); const [sourceOpen, setSourceOpen] = useState(false); const [helpOpen, setHelpOpen] = useState(false);
@@ -82,7 +86,7 @@ export default function Home() {
       {view === "explore" && <div className="explore-page page-enter">
         <section className="hero"><div className="eyebrow"><span className="small-dot" />从真实岗位，找到学习方向</div><h1>想去的岗位，<br /><span>需要会什么？</span><span className="title-asterisk" aria-hidden="true">✳</span></h1><p className="hero-description">让招聘要求成为你的学习地图。<br className="mobile-only" /> 看清所需技能，选择自己的下一步。</p>
           <form className="search-panel" onSubmit={search}><div className="main-search"><Search size={22} /><label className="sr-only" htmlFor="role">目标岗位</label><input id="role" ref={searchInput} value={role} onChange={e => setRole(e.target.value)} maxLength={80} placeholder="输入你想去的岗位，例如：AI 应用开发工程师" disabled={loading} /><Button type="submit" className="primary-button search-submit" disabled={loading}>{loading ? <LoaderCircle className="spin" size={17} /> : <>探索岗位<ArrowUpRight size={17} /></>}</Button></div>
-            <div className="search-options"><label><MapPin size={15} /><span className="sr-only">目标城市</span><select value={city} onChange={e => setCity(e.target.value)} disabled={loading}><option value="">不限城市</option>{["北京", "上海", "深圳", "杭州", "广州", "成都", "武汉", "南京", "西安", "苏州", "全国远程"].map(c => <option key={c}>{c}</option>)}</select><ChevronDown size={12} /></label><span className="option-divider" /><label><BriefcaseBusiness size={15} /><span className="sr-only">经验范围</span><select value={experience} onChange={e => setExperience(e.target.value)} disabled={loading}><option value="">不限经验</option>{["实习 / 应届", "1–3 年", "3–5 年", "5 年以上"].map(c => <option key={c}>{c}</option>)}</select><ChevronDown size={12} /></label><span className="search-hint"><ShieldCheck size={13} />每项技能，都有据可查</span></div></form>
+            <div className="search-options"><SearchFilter label="目标城市" icon={MapPin} value={city} options={cityOptions} disabled={loading} open={openFilter === "city"} onOpenChange={open => setOpenFilter(open ? "city" : null)} onChange={setCity} /><span className="option-divider" /><SearchFilter label="经验范围" icon={BriefcaseBusiness} value={experience} options={experienceOptions} disabled={loading} open={openFilter === "experience"} onOpenChange={open => setOpenFilter(open ? "experience" : null)} onChange={setExperience} /><span className="search-hint"><ShieldCheck size={13} />每项技能，都有据可查</span></div></form>
           {loading && <div className="search-status" role="status"><LoaderCircle size={15} className="spin" />{phase}<button onClick={() => controller.current?.abort()}>取消</button></div>}{error && <div role="alert" className="inline-error">{error}</div>}
           <div className="example-searches"><span>试试这些方向</span>{roleExamples.map(r => <button key={r} disabled={loading} onClick={() => { setRole(r); searchInput.current?.focus(); }}>{r}<ArrowUpRight size={12} /></button>)}</div><button className="demo-link" disabled={loading} onClick={showDemo}>还没想好？先看看一份技能图鉴<ArrowRight size={14} /><span className="demo-tag">演示</span></button>
         </section>
