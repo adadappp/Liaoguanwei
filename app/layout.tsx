@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { CursorTrail } from "@/components/cursor-trail";
+import { StartupTransition } from "@/components/startup-transition";
+import { startupStyles } from "@/lib/startup-styles";
 import "./globals.css";
 import "./atlas.css";
 import "./motion.css";
@@ -25,8 +27,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN">
-      <head><link rel="manifest" href="/manifest.webmanifest" crossOrigin="use-credentials" /></head>
-      <body className="antialiased">{children}<CursorTrail /></body>
+      <head><link rel="manifest" href="/manifest.webmanifest" crossOrigin="use-credentials" /><style>{startupStyles}</style></head>
+      <body className="antialiased"><StartupTransition />{children}<CursorTrail /></body>
     </html>
   );
 }
