@@ -42,25 +42,46 @@ export function CursorTrail() {
       ctx.clearRect(0, 0, width, height);
       points = points.filter(point => now - point.time < LIFETIME);
       if (!enabled || !points.length) return;
-      ctx.lineCap = "round"; ctx.lineJoin = "round";
-      for (let i = 1; i < points.length; i++) {
-        const from = points[i - 1], to = points[i];
-        const freshness = Math.max(0, 1 - (now - to.time) / LIFETIME);
-        const taper = i / Math.max(points.length - 1, 1);
-        const opacity = freshness * taper * 0.56;
-        ctx.strokeStyle = `rgba(245,248,255,${opacity})`;
-        ctx.lineWidth = 0.5 + taper * 1.1;
-        ctx.shadowColor = `rgba(255,255,255,${opacity * 0.8})`; ctx.shadowBlur = 8;
-        ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
-      }
       const head = points[points.length - 1];
       const strength = Math.max(0, 1 - (now - head.time) / LIFETIME);
-      ctx.shadowBlur = 0;
-      const glow = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 6);
-      glow.addColorStop(0, `rgba(255,255,255,${strength * 0.48})`);
-      glow.addColorStop(0.3, `rgba(245,248,255,${strength * 0.18})`);
+      ctx.save();
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+      if (points.length > 1) {
+        const tail = points[0];
+        const path = new Path2D();
+        path.moveTo(tail.x, tail.y);
+        // 通过相邻采样点的中点连接二次曲线，消除折线接缝。
+        for (let i = 1; i < points.length; i++) {
+          const previous = points[i - 1], current = points[i];
+          path.quadraticCurveTo(previous.x, previous.y, (previous.x + current.x) / 2, (previous.y + current.y) / 2);
+        }
+        path.lineTo(head.x, head.y);
+        for (const layer of [
+          { width: 11, opacity: 0.14, blur: 4.5, halo: 18 },
+          { width: 6, opacity: 0.3, blur: 2, halo: 10 },
+          { width: 3.2, opacity: 0.66, blur: 0.7, halo: 3 },
+        ]) {
+          const gradient = Math.hypot(head.x - tail.x, head.y - tail.y) < 1
+            ? ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, MAX_LENGTH)
+            : ctx.createLinearGradient(tail.x, tail.y, head.x, head.y);
+          gradient.addColorStop(0, "rgba(255,255,255,0)");
+          gradient.addColorStop(0.35, `rgba(255,255,255,${strength * layer.opacity * 0.25})`);
+          gradient.addColorStop(1, `rgba(255,255,255,${strength * layer.opacity})`);
+          ctx.strokeStyle = gradient; ctx.lineWidth = layer.width;
+          ctx.filter = `blur(${layer.blur}px)`;
+          ctx.shadowColor = `rgba(255,255,255,${strength * layer.opacity})`;
+          ctx.shadowBlur = layer.halo;
+          ctx.stroke(path);
+        }
+      }
+      ctx.shadowBlur = 0; ctx.filter = "blur(0.7px)";
+      const glow = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 12);
+      glow.addColorStop(0, `rgba(255,255,255,${strength * 0.55})`);
+      glow.addColorStop(0.18, `rgba(255,255,255,${strength * 0.3})`);
+      glow.addColorStop(0.55, `rgba(255,255,255,${strength * 0.08})`);
       glow.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = glow; ctx.fillRect(head.x - 6, head.y - 6, 12, 12);
+      ctx.fillStyle = glow; ctx.fillRect(head.x - 12, head.y - 12, 24, 24);
+      ctx.restore();
       frame = requestAnimationFrame(draw);
     }
     function move(event: PointerEvent) {
