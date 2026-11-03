@@ -59,3 +59,9 @@ button svg,a svg{transition:transform .3s var(--motion-ease)}
 @media(display-mode:standalone){.install-app-link{display:none}}
 @media(hover:none),(pointer:coarse){.cursor-trail{display:none}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.atlas-app [data-reveal]{opacity:1!important;translate:0 0!important}.showcase-device,.showcase-stage:hover .showcase-device{transform:none!important}.primary-button:not(:disabled):hover,.primary-button:not(:disabled):active{transform:none!important}.cursor-trail{display:none}}
+
+/* 搜索框自动填充与外层使用同一底色，避免 Chromium 绘制蓝灰色矩形。 */
+.search-panel{background:#111113}
+.main-search input:-webkit-autofill,.main-search input:-webkit-autofill:hover,.main-search input:-webkit-autofill:focus,.main-search input:-webkit-autofill:active{-webkit-box-shadow:0 0 0 1000px #111113 inset!important;box-shadow:0 0 0 1000px #111113 inset!important;-webkit-text-fill-color:#f5f5f7!important;caret-color:#f5f5f7}
+.main-search input:autofill{box-shadow:0 0 0 1000px #111113 inset!important;color:#f5f5f7;caret-color:#f5f5f7}
+
