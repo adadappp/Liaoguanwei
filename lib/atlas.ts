@@ -1,7 +1,8 @@
 export type Evidence = { jobId: string; quote: string; level: "必备" | "优先" | "未明确" };
 export type Skill = { id: string; name: string; category: string; description: string; evidence: Evidence[] };
 export type Job = { id: string; title: string; company: string; city: string; experience: string; url: string; publishedAt: string | null };
-export type Analysis = { role: string; city: string; experience: string; retrievedAt: string; demo: boolean; jobs: Job[]; skills: Skill[]; warnings: string[] };
+export type Coverage = { candidates: number; invalidUrl: number; offSource: number; notDetail: number; noBody: number; blocked: number; duplicate: number; overLimit: number; searchRequests: number; failedSearches: number; bodyFetches: number; failedFetches: number; candidateDocuments: number; verifiedDocuments: number; unverifiedDocuments: number; validDocuments: number; acceptedJobs: number };
+export type Analysis = { role: string; city: string; experience: string; retrievedAt: string; demo: boolean; jobs: Job[]; skills: Skill[]; warnings: string[]; coverage?: Coverage };
 export type Task = { id: string; name: string; description: string; start: string; end: string; status: "todo" | "doing" | "done"; source?: { role: string; demo: boolean; evidence: { quote: string; url: string; title: string }[] } };
 export type Plan = { id: string; title: string; goal: string; notes: string; tasks: Task[]; updatedAt: string };
 export const STORAGE_KEY = "career-atlas-plans-v1";
