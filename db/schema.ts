@@ -1,4 +1,46 @@
-// Intentionally empty by default.
-// Add Drizzle tables here when the site actually needs a database.
-// See examples/d1/db/schema.ts for an opt-in example.
-export {};
+import { integer, sqliteTable, text, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+export const sources = sqliteTable("data_sources", {
+  id: text("id").primaryKey(), name: text("name").notNull(), url: text("url").notNull(),
+  license: text("license").notNull(), status: text("status").notNull(), notes: text("notes").notNull(), checkedAt: text("checked_at").notNull(),
+});
+export const taxonomy = sqliteTable("job_taxonomy", {
+  id: text("id").primaryKey(), parentId: text("parent_id"), name: text("name").notNull(), description: text("description").notNull(),
+});
+export const jobs = sqliteTable("job_documents", {
+  id: text("id").primaryKey(), url: text("url").notNull(), title: text("title").notNull(), company: text("company").notNull(),
+  city: text("city").notNull(), experience: text("experience").notNull(), family: text("family").notNull(), branch: text("branch").notNull(),
+  sourceId: text("source_id").notNull(), body: text("body").notNull(), bodyHash: text("body_hash").notNull(),
+  extraction: text("extraction_json").notNull(), extractionVersion: integer("extraction_version").notNull().default(1),
+  state: text("state").notNull(), publishedAt: text("published_at"), firstSeenAt: text("first_seen_at").notNull(),
+  verifiedAt: text("verified_at").notNull(), lastAttemptAt: text("last_attempt_at"), nextReviewAt: text("next_review_at").notNull(),
+  stableRounds: integer("stable_rounds").notNull().default(0), failures: integer("failures").notNull().default(0),
+}, table => [uniqueIndex("job_url_unique").on(table.url), index("job_lookup").on(table.family, table.city, table.state), index("job_review").on(table.nextReviewAt)]);
+export const revisions = sqliteTable("job_revisions", {
+  id: text("id").primaryKey(), jobId: text("job_id").notNull().references(() => jobs.id), bodyHash: text("body_hash").notNull(),
+  body: text("body").notNull(), extraction: text("extraction_json").notNull(), verifiedAt: text("verified_at").notNull(),
+}, table => [uniqueIndex("revision_content_unique").on(table.jobId, table.bodyHash)]);
+export const leads = sqliteTable("import_leads", {
+  id: text("id").primaryKey(), sourceId: text("source_id").notNull().references(() => sources.id), url: text("url").notNull(),
+  title: text("title").notNull(), company: text("company").notNull(), city: text("city").notNull(),
+  state: text("state").notNull(), importedAt: text("imported_at").notNull(), lastAttemptAt: text("last_attempt_at"), notes: text("notes").notNull(),
+}, table => [uniqueIndex("lead_url_unique").on(table.url)]);
+export const queries = sqliteTable("search_topics", {
+  id: text("id").primaryKey(), role: text("role").notNull(), city: text("city").notNull(), experience: text("experience").notNull(),
+  family: text("family").notNull(), hits: integer("hits").notNull().default(0), lastSeenAt: text("last_seen_at").notNull(),
+  lastSearchAt: text("last_search_at"), nextSearchAt: text("next_search_at"), leaseUntil: text("lease_until"), leaseToken: text("lease_token"),
+});
+export const feedback = sqliteTable("user_feedback", {
+  id: text("id").primaryKey(), userId: text("user_id").notNull(), jobId: text("job_id").references(() => jobs.id),
+  topicId: text("topic_id").references(() => queries.id), kind: text("kind").notNull(), message: text("message").notNull(),
+  status: text("status").notNull(), resolution: text("resolution").notNull().default(""), createdAt: text("created_at").notNull(), updatedAt: text("updated_at").notNull(),
+}, table => [index("feedback_owner").on(table.userId, table.createdAt), index("feedback_review").on(table.status, table.jobId)]);
+export const runs = sqliteTable("update_runs", {
+  id: text("id").primaryKey(), kind: text("kind").notNull(), status: text("status").notNull(), startedAt: text("started_at").notNull(),
+  completedAt: text("completed_at"), details: text("details_json").notNull(),
+});
+export const budgets = sqliteTable("request_budgets", {
+  id: text("id").primaryKey(), used: integer("used").notNull().default(0), updatedAt: text("updated_at").notNull(),
+});
+export const leases = sqliteTable("maintenance_leases", {
+  id: text("id").primaryKey(), token: text("token").notNull(), until: text("until_at").notNull(),
+});
