@@ -65,3 +65,6 @@ button svg,a svg{transition:transform .3s var(--motion-ease)}
 .main-search input:-webkit-autofill,.main-search input:-webkit-autofill:hover,.main-search input:-webkit-autofill:focus,.main-search input:-webkit-autofill:active{-webkit-box-shadow:0 0 0 1000px #111113 inset!important;box-shadow:0 0 0 1000px #111113 inset!important;-webkit-text-fill-color:#f5f5f7!important;caret-color:#f5f5f7}
 .main-search input:autofill{box-shadow:0 0 0 1000px #111113 inset!important;color:#f5f5f7;caret-color:#f5f5f7}
 
+
+.filter-arrow:focus,.filter-arrow:focus-visible{outline:none;box-shadow:none}.filter-arrow:focus-visible{color:#f5f5f7}.filter-arrow:focus-visible svg{filter:drop-shadow(0 0 2px #ffffff80)}
+
