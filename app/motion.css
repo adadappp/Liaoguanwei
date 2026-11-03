@@ -68,3 +68,17 @@ button svg,a svg{transition:transform .3s var(--motion-ease)}
 
 .filter-arrow:focus,.filter-arrow:focus-visible{outline:none;box-shadow:none}.filter-arrow:focus-visible{color:#f5f5f7}.filter-arrow:focus-visible svg{filter:drop-shadow(0 0 2px #ffffff80)}
 
+/* 职业预览：完整停留3秒，再以900ms的轻微动态模糊平滑滑动。 */
+.preview-carousel-viewport{display:grid;overflow:hidden;isolation:isolate;margin:-8px -18px -20px;padding:8px 18px 20px;pointer-events:none}
+.preview-carousel-slide{grid-area:1/1;min-width:0;align-self:start;transform:translateX(0);filter:blur(0);opacity:1}
+.showcase-stage[data-reveal=visible] .preview-carousel-viewport .showcase-device{animation:none}
+.preview-carousel-slide.is-entering{animation:career-slide-in 900ms cubic-bezier(.22,.72,.2,1) both;will-change:transform,filter,opacity}
+.preview-carousel-slide.is-leaving{animation:career-slide-out 900ms cubic-bezier(.4,0,.2,1) both;will-change:transform,filter,opacity}
+@keyframes career-slide-in{0%{transform:translateX(104%);filter:blur(8px);opacity:.15}45%{filter:blur(3px);opacity:.9}100%{transform:translateX(0);filter:blur(0);opacity:1}}
+@keyframes career-slide-out{0%{transform:translateX(0);filter:blur(0);opacity:1}55%{filter:blur(5px);opacity:.55}100%{transform:translateX(-104%);filter:blur(8px);opacity:0}}
+.preview-carousel-controls{display:flex;align-items:center;justify-content:center;gap:15px;margin:17px auto 0;min-height:30px}
+.preview-carousel-dots{display:flex;gap:2px;align-items:center}.preview-carousel-dots button{display:grid;place-items:center;width:24px;height:28px;border:0;background:transparent;border-radius:6px}.preview-carousel-dots button span{display:block;width:5px;height:5px;background:#56565d;border-radius:99px;transition:width .4s ease,background .4s ease}.preview-carousel-dots button.is-current span{width:19px;background:#ededf0}
+.preview-carousel-label{color:#a1a1a6;font-size:10px;min-width:118px;text-align:center}.preview-carousel-pause{display:grid;place-items:center;width:28px;height:28px;border:1px solid #36363c;border-radius:50%;color:#b6b6bd;background:#161618;transition:color .2s,border-color .2s}.preview-carousel-pause:hover{color:#fff;border-color:#68686f}.preview-carousel-pause:disabled{opacity:.45;cursor:default}.preview-carousel-controls+.showcase-caption{margin-top:9px}
+@media(max-width:720px){.preview-carousel-viewport{margin:-6px -12px -12px;padding:6px 12px 12px}.preview-carousel-controls{gap:9px;margin-top:12px}.preview-carousel-label{min-width:104px;font-size:9px}.preview-carousel-dots button{width:20px}.preview-carousel-controls+.showcase-caption{margin-top:7px}}
+@media(prefers-reduced-motion:reduce){.preview-carousel-slide{transform:none!important;filter:none!important}.preview-carousel-slide.is-leaving{display:none}}
+
