@@ -5,6 +5,7 @@ export type Extraction = { jobs: ExtractedJob[] };
 export const normalize = (text: string) => text.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
 export function levelForQuote(quote: string): Evidence["level"] {
   if (/优先|加分|prefer|nice.to.have|a plus/i.test(quote)) return "优先";
+  if (/或|任选|任一|之一|one of|either/i.test(quote)) return "未明确";
   if (/必须|必备|要求掌握|熟练|精通|掌握|must|required/i.test(quote)) return "必备";
   return "未明确";
 }

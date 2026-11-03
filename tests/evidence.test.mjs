@@ -1,10 +1,15 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {inspectDocuments,skillSupported,canonicalUrl,assembleAnalysis,jobMatchesRole,sourceQuote} from '../lib/analysis.ts';
+import {inspectDocuments,skillSupported,canonicalUrl,assembleAnalysis,jobMatchesRole,sourceQuote,levelForQuote} from '../lib/analysis.ts';
 const body='AI 开发工程师\n测试企业\n岗位要求：必须掌握 Python 进行后端开发。'+'完成企业知识库开发与维护，负责接口设计和测试。'.repeat(18);
 const doc={id:'j1',url:'https://www.liepin.com/job/123.shtml',title:'AI 开发工程师',body};
 const job={documentId:'j1',title:'AI 开发工程师',company:'测试企业',city:'',experience:'',publishedAt:null,metadataQuotes:{title:'AI 开发工程师',company:'测试企业',city:'',experience:'',publishedAt:''},skills:[{name:'Docker',category:'工程实践',description:'容器',quote:'必须掌握 Python 进行后端开发。'}]};
 const input={role:'AI 开发工程师',city:'',experience:''};
+test('可替代的技术要求不将其中一项单独标为必备',()=>{
+  assert.equal(levelForQuote('熟练掌握 Python 或其他编程语言。'),'未明确');
+  assert.equal(levelForQuote('必须精通 Java、Python 中的任一门语言'),'未明确');
+  assert.equal(levelForQuote('必须掌握 Python 编程'),'必备');
+});
 test('搜索标题不能代替正文中的岗位名证据',()=>{
   const j={...job,skills:[{name:'Python',category:'编程基础',description:'开发',quote:'必须掌握 Python 进行后端开发。'}]};
   assert.equal(assembleAnalysis(input,[{...doc,body:body.replace('AI 开发工程师','另一种职位')}],{jobs:[j]}).jobs.length,0);
