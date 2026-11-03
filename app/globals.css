@@ -19,8 +19,8 @@
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #000000;
+  --foreground: #f5f5f7;
   --card: #ffffff;
   --card-foreground: #171717;
   --popover: #ffffff;
@@ -96,8 +96,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #000000;
+    --foreground: #f5f5f7;
     --card: #171717;
     --card-foreground: #ededed;
     --popover: #171717;

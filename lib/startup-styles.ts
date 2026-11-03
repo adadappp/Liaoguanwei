@@ -1,5 +1,7 @@
 // 关键样式随首份 HTML 输出，React 加载期间也能绘制轮廓和流光。
 export const startupStyles = `
+html{background:#000;color-scheme:dark}
+body{margin:0;background:#000;color:#f5f5f7}
 .atlas-startup{position:fixed;inset:0;z-index:200;background:#000;display:grid;place-items:center;pointer-events:none;animation:startup-safety 0s 8s forwards}
 .atlas-startup-book{display:block;width:min(36vw,65vh);height:auto;color:#fff;overflow:visible;animation:startup-in .4s ease-out both}
 .atlas-startup-book path{vector-effect:non-scaling-stroke;stroke-width:3px}

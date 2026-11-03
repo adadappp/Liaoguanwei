@@ -26,9 +26,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" style={{ backgroundColor: "#000000", colorScheme: "dark" }}>
       <head><link rel="manifest" href="/manifest.webmanifest" crossOrigin="use-credentials" /><style>{startupStyles}</style></head>
-      <body className="antialiased"><StartupTransition />{children}<CursorTrail /></body>
+      <body className="antialiased" style={{ backgroundColor: "#000000", color: "#f5f5f7", margin: 0 }}><StartupTransition />{children}<CursorTrail /></body>
     </html>
   );
 }
