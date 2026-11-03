@@ -34,6 +34,9 @@ export function classifyRole(title: string) {
 export const normalizeRole = (role: string) => role.normalize("NFKC").toLowerCase().replace(/[\s·_-]/g, "");
 export function cacheRoleMatches(role: string, title: string) {
   const target = classifyRole(role), actual = classifyRole(title);
+  // 一个AI应用职位也可能明确承担前/后端职责；主分类不能遮掉已经满足原岗位的证据。
+  if(actual.family==="ai" && target.branch==="software.frontend" && /前端|front.?end/i.test(title)) return true;
+  if(actual.family==="ai" && target.branch==="software.backend" && /后端|服务端|back.?end|Python|Java|Golang/i.test(title)) return true;
   if (target.branch !== "other") return target.branch === actual.branch || (target.branch === "software.frontend" && actual.branch === "software.fullstack");
   const core = normalizeRole(role).replace(/工程师|高级|开发/g, "");
   return core.length >= 2 && normalizeRole(title).includes(core);

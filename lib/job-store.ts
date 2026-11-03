@@ -25,7 +25,8 @@ export async function acquireLease(db: D1Database, id: string, seconds = 100) {
 export async function releaseLease(db: D1Database, id: string, token: string) { await db.prepare("DELETE FROM maintenance_leases WHERE id=? AND token=?").bind(id,token).run(); }
 export async function readCache(db: D1Database, input: Query, includeStale = false): Promise<Analysis> {
   const {family} = classifyRole(input.role);
-  const rows = await db.prepare(`SELECT * FROM job_documents WHERE family=? AND state='verified' AND extraction_version=1 AND verified_at>=? ${includeStale ? "" : "AND next_review_at>?"} ${input.city && input.city !== "全国远程" ? "AND city LIKE ?" : ""} ORDER BY verified_at DESC LIMIT 300`).bind(...[family,new Date(Date.now()-90*86400000).toISOString(),...(!includeStale ? [iso()] : []),...(input.city && input.city !== "全国远程" ? [`%${input.city}%`] : [])]).all<StoredJob>();
+  const families=family==="software" ? ["software","ai"] : [family];
+  const rows = await db.prepare(`SELECT * FROM job_documents WHERE family IN (${families.map(()=>"?").join(",")}) AND state='verified' AND extraction_version=1 AND verified_at>=? ${includeStale ? "" : "AND next_review_at>?"} ${input.city && input.city !== "全国远程" ? "AND city LIKE ?" : ""} ORDER BY verified_at DESC LIMIT 300`).bind(...[...families,new Date(Date.now()-90*86400000).toISOString(),...(!includeStale ? [iso()] : []),...(input.city && input.city !== "全国远程" ? [`%${input.city}%`] : [])]).all<StoredJob>();
   return assembleStored(input, rows.results.filter(row=>cacheRoleMatches(input.role,row.title)).slice(0,100));
 }
 export function assembleStored(input: Query, rows: StoredJob[]): Analysis {

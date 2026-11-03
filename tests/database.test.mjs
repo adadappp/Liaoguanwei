@@ -41,6 +41,12 @@ test('正文变化追加历史版本并重置稳定周期，不覆盖旧证据',
  assert.equal(sqlite.prepare('SELECT count(*) n FROM job_revisions').get().n,2);
  assert.equal(sqlite.prepare('SELECT stable_rounds n FROM job_documents').get().n,0);
 });
+test('AI主分类不遮掉有证据的Python后端职责，仍拒绝其他语言和城市',async()=>{
+ const {db}=database(),s=sample();
+ const title='大模型 Python 后端工程师';s.doc={...s.doc,title,body:s.doc.body.replace('Python 后端工程师',title)};s.extraction.jobs[0]={...s.extraction.jobs[0],title,metadataQuotes:{...s.extraction.jobs[0].metadataQuotes,title}};
+ const analysis=assembleAnalysis(input,[s.doc],s.extraction);await saveVerified(db,input,[s.doc],s.extraction,analysis);
+ assert.equal((await readCache(db,input)).jobs.length,1);assert.equal((await readCache(db,{...input,role:'Java 后端开发'})).jobs.length,0);assert.equal((await readCache(db,{...input,city:'苏州'})).jobs.length,0);
+});
 test('持久预算和租约原子限制；后台处理不伪造用户热度',async()=>{
  const {db,sqlite}=database();assert.equal(await claimBudget(db,'test',2),true);assert.equal(await claimBudget(db,'test',2),true);assert.equal(await claimBudget(db,'test',2),false);
  const token=await acquireLease(db,'one');assert.ok(token);assert.equal(await acquireLease(db,'one'),null);await releaseLease(db,'one','wrong');assert.equal(await acquireLease(db,'one'),null);await releaseLease(db,'one',token);assert.ok(await acquireLease(db,'one'));
