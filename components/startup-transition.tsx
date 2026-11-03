@@ -22,6 +22,7 @@ export function StartupTransition() {
       if (event.target === event.currentTarget && (event.animationName === "startup-out" || event.animationName === "startup-safety")) setDismissed(true);
     }}>
     <svg className="atlas-startup-book" viewBox="0 0 600 420" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+      <g className="startup-book-shadow"><path d={bookOutline}/><path d="M300 100V360"/></g>
       <g className="startup-book-outline"><path d={bookOutline}/><path d="M300 100V360"/></g>
       <g className="startup-book-light">
         <path className="startup-book-sweep" d={bookOutline} pathLength="100"
