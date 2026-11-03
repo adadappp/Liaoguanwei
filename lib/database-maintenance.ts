@@ -11,7 +11,7 @@ export async function bootstrap(db: D1Database) {
   for(let offset=0;offset<lagouLeads.length;offset+=25) await db.batch(lagouLeads.slice(offset,offset+25).map(row=>db.prepare("INSERT OR IGNORE INTO import_leads(id,source_id,url,title,company,city,state,imported_at,notes) VALUES(?,'kaggle-lagou',?,?,?,?,'awaiting_body',?,?)").bind(row.id,row.url,row.title,row.company,row.city,now,"缺正文；原始skills标签未作为技能证据。CC BY-SA 4.0 / logiover")));
   return {sources:SOURCE_CATALOG.length,taxonomy:TAXONOMY.length,leads:lagouLeads.length};
 }
-export async function maintain(db: D1Database,signal: AbortSignal,mode:"review"|"leads"|"topics"="review") {
+export async function maintain(db: D1Database,signal: AbortSignal,mode:"review"|"leads"|"topics"="review",jobId?:string) {
   const token=await acquireLease(db,"maintenance",100); if(!token) throw new Error("已有更新任务正在运行。");
   const id=crypto.randomUUID(),started=iso(); let details: unknown={};
   try {
@@ -28,7 +28,8 @@ export async function maintain(db: D1Database,signal: AbortSignal,mode:"review"|
     } else {
       const candidates = mode==="leads"
         ? (await db.prepare("SELECT id,url,title,company,city,'' AS body FROM import_leads WHERE state='awaiting_body' AND (last_attempt_at IS NULL OR last_attempt_at<?) ORDER BY last_attempt_at ASC,id LIMIT 3").bind(later(-7)).all<StoredJob>()).results
-        : (await db.prepare("SELECT * FROM job_documents WHERE next_review_at<=? ORDER BY CASE WHEN state IN ('needs_review','review_failed') THEN 0 ELSE 1 END,next_review_at ASC LIMIT 3").bind(iso()).all<StoredJob>()).results;
+        : jobId ? (await db.prepare("SELECT * FROM job_documents WHERE id=? LIMIT 1").bind(jobId).all<StoredJob>()).results
+        : (await db.prepare("SELECT * FROM job_documents WHERE next_review_at<=? ORDER BY CASE WHEN state IN ('needs_review','review_failed') THEN 0 ELSE 1 END,COALESCE((SELECT MAX(hits) FROM search_topics WHERE family=job_documents.family AND last_seen_at>=?),0) DESC,RANDOM() LIMIT 3").bind(iso(),later(-30)).all<StoredJob>()).results;
       const outcomes=[];
       for(const row of candidates) {
         if(signal.aborted) throw new Error("更新超时，请稍后查看日志。");

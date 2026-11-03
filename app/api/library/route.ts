@@ -19,10 +19,10 @@ export async function GET() {
 export async function POST(request: Request) {
   if(!sameOrigin(request)) return apiJson({error:"请求来源无效。"},403);
   if(!env.DB) return apiJson({error:"职位数据库尚不可用。"},503);
-  let mode; try { mode=(await smallJson(request)).mode; } catch { return apiJson({error:"更新参数无效。"},400); }
+  let mode,jobId; try { const data=await smallJson(request);mode=data.mode;jobId=data.jobId;if(jobId!==undefined&&(mode!=="review"||typeof jobId!=="string"||!/^[a-f0-9]{64}$/.test(jobId)))throw new Error("无效职位编号"); } catch { return apiJson({error:"更新参数无效。"},400); }
   if(!["bootstrap","review","leads","topics"].includes(mode)) return apiJson({error:"更新模式无效。"},400);
   const abort=new AbortController(),cancel=()=>abort.abort(); const timer=setTimeout(cancel,85000);request.signal.addEventListener("abort",cancel);
-  try { return apiJson(mode==="bootstrap" ? await bootstrap(env.DB) : await maintain(env.DB,abort.signal,mode)); }
+  try { return apiJson(mode==="bootstrap" ? await bootstrap(env.DB) : await maintain(env.DB,abort.signal,mode,jobId)); }
   catch(error) { return apiJson({error:error instanceof Error ? error.message : "数据库更新未完成。"},502); }
   finally {clearTimeout(timer);request.signal.removeEventListener("abort",cancel);}
 }
