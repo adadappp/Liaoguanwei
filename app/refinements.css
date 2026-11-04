@@ -62,3 +62,12 @@
 .preview-demo,.preview-source{font-size:11px}
 @media(max-width:1100px) and (min-width:721px){.preview-nav{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.atlas-app *,.atlas-nav-menu{transition:none!important}}
+.atlas-dialog .field-label>input,.atlas-dialog .field-label>select,.atlas-dialog .plan-select-trigger{box-sizing:border-box;width:100%;height:48px;min-height:48px;margin-top:8px;padding:10px 14px;font-family:inherit;font-size:14px;font-weight:400;line-height:24px;color:#f5f5f7;background:#232325;border:1px solid #39393c;border-radius:10px}
+.atlas-dialog .plan-select-trigger{display:flex;box-shadow:none;text-align:left;cursor:pointer;transition:border-color .16s,background .16s}
+.atlas-dialog .plan-select-trigger:hover{background:#29292c;border-color:#58585e}
+.atlas-dialog .plan-select-trigger:focus-visible,.atlas-dialog .field-label>input:focus-visible{outline:2px solid #a1a1a6;outline-offset:3px;box-shadow:none}
+.plan-select-trigger [data-slot=select-value]{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:24px}
+.plan-select-menu{z-index:80;width:var(--radix-select-trigger-width);max-width:calc(100vw - 32px);background:#202022;color:#f5f5f7;border:1px solid #45454b;border-radius:12px;padding:4px;box-shadow:0 16px 48px #0009;font-family:inherit}
+.plan-select-menu [data-slot=select-item]{min-height:44px;padding:10px 36px 10px 12px;border-radius:7px;font-size:14px;line-height:24px;cursor:pointer;white-space:normal;overflow-wrap:anywhere}
+.plan-select-menu [data-slot=select-item][data-highlighted]{background:#353538;color:#fff;outline:none}
+.plan-select-menu [data-slot=select-item][data-state=checked]{background:#2d2d30;color:#fff}
