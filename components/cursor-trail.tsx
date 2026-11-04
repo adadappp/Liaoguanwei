@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Point = { x: number; y: number; time: number };
 const LIFETIME = 170;
@@ -7,6 +7,19 @@ const MAX_LENGTH = 62;
 
 /** 短距离白色荧光，仅在鼠标移动及淡出期间绘制，闲置时停止动画帧。 */
 export function CursorTrail() {
+  const [started, setStarted] = useState(false);
+  useEffect(() => {
+    // 避免启动第一秒分配高DPI整屏画布，与书本首帧争抢渲染资源。
+    const start = () => setStarted(true);
+    if (!document.querySelector(".atlas-startup")) { start(); return; }
+    window.addEventListener("atlas:startup-complete", start, { once: true });
+    const timer = setTimeout(start, 9000);
+    return () => { clearTimeout(timer); window.removeEventListener("atlas:startup-complete", start); };
+  }, []);
+  return started ? <CursorTrailCanvas /> : null;
+}
+
+function CursorTrailCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = canvasRef.current;
