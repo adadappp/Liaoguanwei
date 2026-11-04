@@ -2,7 +2,7 @@ import type { StudySession, Task } from "./atlas.ts";
 
 export const WEEKDAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 export const MINUTES_PER_DAY = 1440;
-export const HOUR_HEIGHT = 64;
+export const HOUR_HEIGHT = 40;
 export const timeLabel = (minute: number) => `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
 export const TIME_OPTIONS = Array.from({ length: 97 }, (_, i) => i * 15);
 

@@ -13,9 +13,9 @@ test('老版备份及没有课次的课程可直接读取，不自动改造旧�
   const oldPlan={...plan,tasks:[oldTask]};
   assert.deepEqual(parseBackup({format:'career-atlas',version:1,plans:[oldPlan]}),[oldPlan]);
 });
-test('第2版备份往返保留多课次、日期、笔记与来源',()=>{
+test('当前备份往返保留多课次、日期、笔记与来源',()=>{
   const p={...plan,tasks:[{...course,sessions:[session,{...session,id:'s2',day:2}],source:{role:'AI',demo:true,evidence:[]}},other]};
-  const exported=backup([p]); assert.equal(exported.version,2);
+  const exported=backup([p]); assert.equal(exported.version,3);
   assert.deepEqual(parseBackup(JSON.parse(JSON.stringify(exported))),[p]);
 });
 test('拒绝非法星期、时长、粒度、越界和重复课次ID',()=>{

@@ -5,7 +5,7 @@ import { prepareDocuments, assembleAnalysis, levelForQuote, canonicalUrl } from 
 const p = { id:'p1',title:'学习计划',goal:'学会接口开发',notes:'笔记',updatedAt:'2026-11-02',tasks:[{id:'t1',name:'Python',description:'练习',start:'2026-11-02',end:'2026-11-20',status:'doing',source:{role:'开发',demo:false,evidence:[{quote:'熟练使用 Python',url:'https://jobs.example.com/123',title:'开发'}]}}] };
 test('备份往返保留任务、笔记、来源与状态',()=>assert.deepEqual(parseBackup(JSON.parse(JSON.stringify(backup([p])))),[p]));
 test('拒绝损坏备份、未知版本、重复ID及不合法日期',()=>{
-  for(const change of [{version:3},{plans:[p,p]},{plans:[{...p,tasks:[{...p.tasks[0],end:'2026-02-30'}]}]},{plans:[{...p,tasks:[{...p.tasks[0],end:'2026-01-01'}]}]},{plans:[{...p,tasks:[{...p.tasks[0],status:'anything'}]}]}]) assert.throws(()=>parseBackup({...backup([p]),...change}));
+  for(const change of [{version:4},{plans:[p,p]},{plans:[{...p,tasks:[{...p.tasks[0],end:'2026-02-30'}]}]},{plans:[{...p,tasks:[{...p.tasks[0],end:'2026-01-01'}]}]},{plans:[{...p,tasks:[{...p.tasks[0],status:'anything'}]}]}]) assert.throws(()=>parseBackup({...backup([p]),...change}));
 });
 test('拒绝脚本链接与内网地址，允许正常HTTPS来源',()=>{for(const s of ['javascript:alert(1)','http://jobs.example.com','https://127.0.0.1/a','https://[::1]/a','https://a.internal/a','https://user:pass@example.com']) assert.equal(safeUrl(s),null); assert.ok(safeUrl('https://jobs.example.com/123'));});
 const body = 'AI 应用开发工程师\n示例公司\n上海\n1-3年\n任职要求：熟练使用 Python 进行后端开发。熟悉 Python 者优先。\n' + '负责开发维护企业知识库应用，完成需求分析与接口设计。'.repeat(12);
