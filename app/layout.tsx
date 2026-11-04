@@ -5,6 +5,7 @@ import { startupStyles } from "@/lib/startup-styles";
 import "./globals.css";
 import "./atlas.css";
 import "./motion.css";
+import "./refinements.css";
 
 export const metadata: Metadata = {
   title: "求职学习图鉴 · 把方向变成下一步",

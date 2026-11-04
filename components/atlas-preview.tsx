@@ -44,7 +44,7 @@ export function AtlasPreview({ onOpen }: { onOpen: () => void }) {
     return () => clearTimeout(timer);
   }, [visible, pageVisible, paused, reducedMotion, slide.current, slide.previous, slide.sequence]);
   return <section ref={root} className="product-showcase" aria-labelledby="showcase-title">
-    <div className="showcase-heading" data-reveal="visible"><span className="eyebrow muted">LESS GUESSWORK. MORE DIRECTION.</span><h2 id="showcase-title">看清要求。<br /><span>再决定，下一步。</span></h2><p>把分散的岗位信息，变成一份属于你的学习清单。</p></div>
+    <div className="showcase-heading" data-reveal="visible"><span className="eyebrow muted"><span className="section-index">02</span>先翻看一份职业图鉴</span><h2 id="showcase-title">看清要求，再决定下一步</h2><p>技能、招聘依据和学习计划，在同一处连接起来。</p></div>
     <button type="button" className="showcase-stage" data-reveal="visible" onClick={onOpen} aria-label="打开演示技能图鉴，体验完整流程">
       <div className="showcase-ambient" aria-hidden="true" />
       <div className="preview-carousel-viewport" aria-hidden="true">
