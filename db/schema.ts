@@ -50,3 +50,15 @@ export const budgets = sqliteTable("request_budgets", {
 export const leases = sqliteTable("maintenance_leases", {
   id: text("id").primaryKey(), token: text("token").notNull(), until: text("until_at").notNull(),
 });
+export const interviewQuestions=sqliteTable("interview_questions",{
+  id:text("id").primaryKey(),question:text("question").notNull(),originalQuestion:text("original_question").notNull(),answer:text("answer").notNull(),
+  skills:text("skills_json").notNull(),roles:text("roles_json").notNull(),difficulty:text("difficulty").notNull(),
+  sourceUrl:text("source_url").notNull(),sourceTitle:text("source_title").notNull(),sourceKind:text("source_kind").notNull(),reportQuote:text("report_quote").notNull(),license:text("license").notNull(),sourceHash:text("source_hash").notNull(),
+  verifiedAt:text("verified_at").notNull(),createdAt:text("created_at").notNull(),
+},table=>[index("interview_verified").on(table.verifiedAt)]);
+export const interviewTopics=sqliteTable("interview_topics",{
+  id:text("id").primaryKey(),role:text("role").notNull(),skills:text("skills_json").notNull(),jobIds:text("job_ids_json").notNull(),updatedAt:text("updated_at").notNull(),nextSearchAt:text("next_search_at"),
+});
+export const interviewLinks=sqliteTable("interview_question_links",{
+  topicId:text("topic_id").notNull().references(()=>interviewTopics.id,{onDelete:"cascade"}),questionId:text("question_id").notNull().references(()=>interviewQuestions.id,{onDelete:"cascade"}),
+},table=>[primaryKey({columns:[table.topicId,table.questionId]})]);
