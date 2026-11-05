@@ -8,6 +8,13 @@
       "when": 1793704247939,
       "tag": "0000_perpetual_lionheart",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793851807023,
+      "tag": "0001_fixed_riptide",
+      "breakpoints": true
     }
   ]
 }

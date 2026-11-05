@@ -1,6 +1,6 @@
 import { assembleAnalysis, canonicalUrl, normalize, type Document, type Extraction } from "./analysis.ts";
 import type { Analysis } from "./atlas.ts";
-import { cacheRoleMatches, classifyRole, normalizeRole, reviewDays } from "./job-taxonomy.ts";
+import { classifyRole, normalizeRole, reviewDays } from "./job-taxonomy.ts";
 export type Query = { role: string; city: string; experience: string };
 export type StoredJob = { id: string; url: string; title: string; company: string; city: string; experience: string; body: string; body_hash: string; extraction_json: string; verified_at: string; state: string; next_review_at: string; stable_rounds: number; branch: string };
 export const iso = () => new Date().toISOString();
@@ -24,11 +24,17 @@ export async function acquireLease(db: D1Database, id: string, seconds = 100) {
   return row?.token === token ? token : null;
 }
 export async function releaseLease(db: D1Database, id: string, token: string) { await db.prepare("DELETE FROM maintenance_leases WHERE id=? AND token=?").bind(id,token).run(); }
+export async function rememberQueryMatches(db:D1Database,topic:string,jobIds:string[]) {
+  if(jobIds.length)await db.batch(jobIds.map(id=>db.prepare("INSERT OR IGNORE INTO query_job_matches(topic_id,job_id,matched_at) VALUES(?,?,?)").bind(topic,id,iso())));
+}
 export async function readCache(db: D1Database, input: Query, includeStale = false): Promise<Analysis> {
-  const {family} = classifyRole(input.role);
-  const families=family==="software" ? ["software","ai"] : [family];
-  const rows = await db.prepare(`SELECT * FROM job_documents WHERE ${family === "other" ? "" : `family IN (${families.map(()=>"?").join(",")}) AND `}state='verified' AND extraction_version=1 AND verified_at>=? ${includeStale ? "" : "AND next_review_at>?"} ${input.city && input.city !== "全国远程" ? "AND city LIKE ?" : ""} ORDER BY verified_at DESC LIMIT 300`).bind(...[...(family === "other" ? [] : families),new Date(Date.now()-90*86400000).toISOString(),...(!includeStale ? [iso()] : []),...(input.city && input.city !== "全国远程" ? [`%${input.city}%`] : [])]).all<StoredJob>();
-  return assembleStored(input, rows.results.filter(row=>cacheRoleMatches(input.role,row.title,row.body)).slice(0,100));
+  const eligibility=`state='verified' AND extraction_version=1 AND verified_at>=? ${includeStale ? "" : "AND next_review_at>?"}`;
+  const args=[new Date(Date.now()-90*86400000).toISOString(),...(!includeStale ? [iso()] : [])];
+  // 查询关联单独读取，不被通用候选的300条上限或主分类遮掉；仍走相同的正文/筛选校验。
+  const linked=await db.prepare(`SELECT * FROM job_documents WHERE ${eligibility} AND id IN (SELECT job_id FROM query_job_matches WHERE topic_id=?) ORDER BY verified_at DESC,id LIMIT 100`).bind(...args,await topicId(input)).all<StoredJob>();
+  const rows=await db.prepare(`SELECT * FROM job_documents WHERE ${eligibility} ${input.city && input.city !== "全国远程" ? "AND city LIKE ?" : ""} ORDER BY verified_at DESC,id LIMIT 300`).bind(...args,...(input.city && input.city !== "全国远程" ? [`%${input.city}%`] : [])).all<StoredJob>();
+  const candidates=new Map<string,StoredJob>();for(const row of [...linked.results,...rows.results])if(!candidates.has(row.id))candidates.set(row.id,row);
+  return assembleStored(input,[...candidates.values()]);
 }
 export function assembleStored(input: Query, rows: StoredJob[]): Analysis {
   const docs: Document[] = [], extracted: Extraction = {jobs:[]}; const times = new Map<string,StoredJob>();
@@ -46,6 +52,7 @@ export function assembleStored(input: Query, rows: StoredJob[]): Analysis {
 }
 export async function saveVerified(db: D1Database, input: Query, docs: Document[], extraction: Extraction, result: Analysis) {
   const now = iso(); const saved = new Map<string,string>();
+  const topic=result.jobs.length ? await recordTopic(db,input,false) : await topicId(input);
   for (const job of result.jobs) {
     const doc = docs.find(d=>d.id===job.id), raw = extraction.jobs.find(j=>j.documentId===job.id);
     if (!doc?.verified || !raw) continue;
@@ -60,6 +67,7 @@ export async function saveVerified(db: D1Database, input: Query, docs: Document[
       db.prepare("INSERT INTO data_sources(id,name,url,license,status,notes,checked_at) VALUES(?,?,?,?,'verified_reference',?,?) ON CONFLICT(id) DO UPDATE SET checked_at=excluded.checked_at").bind(new URL(url).hostname,new URL(url).hostname,new URL(url).origin,"招聘正文权利归原发布方","通过实时检索读取的来源；保留原链接和核验记录，不保证职位仍在招聘。",now),
       db.prepare(`INSERT INTO job_documents(id,url,title,company,city,experience,family,branch,source_id,body,body_hash,extraction_json,extraction_version,state,published_at,first_seen_at,verified_at,last_attempt_at,next_review_at,stable_rounds,failures) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1,'verified',?,?,?,?,?,?,0) ON CONFLICT(id) DO UPDATE SET url=excluded.url,title=excluded.title,company=excluded.company,city=excluded.city,experience=excluded.experience,family=excluded.family,branch=excluded.branch,source_id=excluded.source_id,body=excluded.body,body_hash=excluded.body_hash,extraction_json=excluded.extraction_json,extraction_version=1,state='verified',published_at=excluded.published_at,verified_at=excluded.verified_at,last_attempt_at=excluded.last_attempt_at,next_review_at=excluded.next_review_at,stable_rounds=excluded.stable_rounds,failures=0`).bind(id,url,job.title,job.company,job.city,job.experience,category.family,category.branch,new URL(url).hostname,doc.body,bodyHash,payload,job.publishedAt,now,now,now,review,stable),
       db.prepare("INSERT OR IGNORE INTO job_revisions(id,job_id,body_hash,body,extraction_json,verified_at) VALUES(?,?,?,?,?,?)").bind(await hash(id+bodyHash),id,bodyHash,doc.body,payload,now),
+      db.prepare("INSERT INTO query_job_matches(topic_id,job_id,matched_at) VALUES(?,?,?) ON CONFLICT(topic_id,job_id) DO UPDATE SET matched_at=excluded.matched_at").bind(topic,id,now),
       db.prepare("UPDATE import_leads SET state='verified',last_attempt_at=? WHERE url=?").bind(now,url),
       db.prepare("UPDATE user_feedback SET status='reviewed',resolution=?,updated_at=? WHERE job_id=? AND status IN ('pending','retry')").bind(existing?.body_hash===bodyHash ? "已重新读取原文，正文未变化；反馈保留供继续核查。" : "已重新读取并提取原文，资料已更新；反馈保留。",now,id),
     ]);

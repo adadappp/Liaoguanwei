@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { integer, sqliteTable, text, index, uniqueIndex, primaryKey } from "drizzle-orm/sqlite-core";
 export const sources = sqliteTable("data_sources", {
   id: text("id").primaryKey(), name: text("name").notNull(), url: text("url").notNull(),
   license: text("license").notNull(), status: text("status").notNull(), notes: text("notes").notNull(), checkedAt: text("checked_at").notNull(),
@@ -29,6 +29,11 @@ export const queries = sqliteTable("search_topics", {
   family: text("family").notNull(), hits: integer("hits").notNull().default(0), lastSeenAt: text("last_seen_at").notNull(),
   lastSearchAt: text("last_search_at"), nextSearchAt: text("next_search_at"), leaseUntil: text("lease_until"), leaseToken: text("lease_token"),
 });
+export const queryJobs = sqliteTable("query_job_matches", {
+  topicId: text("topic_id").notNull().references(() => queries.id, {onDelete:"cascade"}),
+  jobId: text("job_id").notNull().references(() => jobs.id, {onDelete:"cascade"}),
+  matchedAt: text("matched_at").notNull(),
+}, table => [primaryKey({columns:[table.topicId,table.jobId]}),index("query_job_matches_job").on(table.jobId)]);
 export const feedback = sqliteTable("user_feedback", {
   id: text("id").primaryKey(), userId: text("user_id").notNull(), jobId: text("job_id").references(() => jobs.id),
   topicId: text("topic_id").references(() => queries.id), kind: text("kind").notNull(), message: text("message").notNull(),

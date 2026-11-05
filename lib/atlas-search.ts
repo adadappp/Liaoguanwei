@@ -1,11 +1,15 @@
 import type { Analysis } from "./atlas.ts";
 import { runRecruitment } from "./recruitment-service.ts";
-import { acquireLease, claimBudget, iso, later, mergeAnalysis, readCache, recordTopic, releaseLease, saveVerified, topicId, type Query } from "./job-store.ts";
+import { acquireLease, claimBudget, iso, later, mergeAnalysis, readCache, recordTopic, releaseLease, rememberQueryMatches, saveVerified, topicId, type Query } from "./job-store.ts";
 export async function searchAtlas(db: D1Database | undefined, input: Query, signal: AbortSignal, force = false): Promise<Analysis> {
   let cached: Analysis | undefined, topic = await topicId(input), databaseFailed = false;
   if(db) {
     try { topic = await recordTopic(db,input,!force); cached = await readCache(db,input); }
     catch { databaseFailed = true; }
+    if(cached?.jobs.length) {
+      try{await rememberQueryMatches(db,topic,cached.jobs.map(job=>job.id));}
+      catch{cached.warnings.push("本次库内资料可用，但查询关联记录未保存。请稍后重试。");}
+    }
   }
   const decorate = (result: Analysis) => { if(result.storage) result.storage.topicId=topic; return result; };
   if(!force && cached && cached.jobs.length>=5) return decorate(cached);
@@ -35,11 +39,14 @@ export async function searchAtlas(db: D1Database | undefined, input: Query, sign
     if(db && !databaseFailed) {
       try {
         const ids=await saveVerified(db,input,live.docs,live.extraction,live.analysis);
+        const readable=await readCache(db,input);
+        const readableIds=new Set(readable.jobs.map(job=>job.id));
+        if(ids.size!==live.analysis.jobs.length || [...ids.values()].some(id=>!readableIds.has(id))) throw new Error("已存职位未通过同条件回读校验。");
         live.analysis.jobs=live.analysis.jobs.map(j=>({...j,id:ids.get(j.id)||`live:${j.id}`,verifiedAt:iso(),evidenceStatus:"current"}));
         live.analysis.skills=live.analysis.skills.map(s=>({...s,evidence:s.evidence.map(e=>({...e,jobId:ids.get(e.jobId)||`live:${e.jobId}`}))}));
         await db.prepare("UPDATE search_topics SET next_search_at=? WHERE id=?").bind(live.analysis.jobs.length>=5 ? later(1) : new Date(Date.now()+6*3600000).toISOString(),topic).run();
         persisted=ids.size===live.analysis.jobs.length;
-      } catch { live.analysis.warnings.push("本次资料已核验，但数据库写入未完成，后续查询可能需要重新检索。"); }
+      } catch { live.analysis.warnings.push("本次资料已核验，但数据库保存或同条件回读未完成；本轮结果仍可查看，后续可能需要重新检索。"); }
     } else live.analysis.warnings.push("职位数据库暂不可用，本次采用实时检索，资料未积累入库。");
     const result=cached ? mergeAnalysis(input,cached,live.analysis) : {...live.analysis,storage:{mode:"live" as const,cachedJobs:0,liveJobs:live.analysis.jobs.length,topicId:topic}};
     result.refresh={status:"completed",persisted,...!persisted?{reason:"实时核验已完成，但资料或查询状态未完整入库。"}:{}};

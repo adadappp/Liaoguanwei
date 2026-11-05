@@ -45,14 +45,18 @@ export function otherRoleMatches(role: string, title: string, body = "") {
   const core=query.replace(/工程师|高级|开发/g, "");
   return core.length>=2&&name.includes(core);
 }
-export function cacheRoleMatches(role: string, title: string, body = "") {
-  const target = classifyRole(role), actual = classifyRole(title);
-  // 一个AI应用职位也可能明确承担前/后端职责；主分类不能遮掉已经满足原岗位的证据。
-  if(actual.family==="ai" && target.branch==="software.frontend" && /前端|front.?end/i.test(title)) return true;
-  if(actual.family==="ai" && target.branch==="software.backend" && /后端|服务端|back.?end|Python|Java|Golang/i.test(title)) return true;
-  if (target.branch !== "other") return target.branch === actual.branch || (target.branch === "software.frontend" && actual.branch === "software.fullstack");
-  return otherRoleMatches(role,title,body);
+export function matchesRole(role: string, title: string, body = "") {
+  const families: [RegExp, RegExp][] = [
+    [/前端|front.?end/i, /前端|front.?end|全栈/i],
+    [/数据工程|大数据|数仓/i, /数据工程|大数据|数据开发|数据平台|数仓|数据仓库|ETL|data.?engineer/i],
+    [/算法|机器学习/i, /算法|机器学习|深度学习|推荐|计算机视觉|自然语言|NLP|algorithm|machine.?learning/i],
+    [/大模型|LLM|AI\s*应用/i, /大模型|LLM|AI|人工智能|智能体|agent|RAG/i],
+    [/后端|服务端|back.?end/i, /后端|服务端|back.?end|全栈|Java|Python|Golang|开发工程师/i],
+  ];
+  const family = families.find(([pattern]) => pattern.test(role));
+  return family ? family[1].test(title) : classifyRole(role).branch === "other" ? otherRoleMatches(role,title,body) : classifyRole(role).branch === classifyRole(title).branch;
 }
+export const cacheRoleMatches = matchesRole;
 export function reviewDays(branch: string, stableRounds = 0, hot = false) {
   const base = branch.startsWith("ai.") ? 7 : 30;
   return Math.min(90, Math.max(3, Math.round(base * (hot ? 0.5 : 1) * Math.pow(1.5, Math.min(stableRounds, 3)))));

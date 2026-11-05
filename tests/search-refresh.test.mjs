@@ -2,8 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {registerHooks} from 'node:module';
 import {DatabaseSync} from 'node:sqlite';
-import {readFileSync} from 'node:fs';
-import {saveVerified,recordTopic,claimBudget,topicId} from '../lib/job-store.ts';
+import {readFileSync,readdirSync} from 'node:fs';
+import {saveVerified,readCache,recordTopic,claimBudget,topicId} from '../lib/job-store.ts';
 import {assembleAnalysis} from '../lib/analysis.ts';
 
 registerHooks({resolve(specifier,context,next){
@@ -14,7 +14,7 @@ registerHooks({resolve(specifier,context,next){
 const {maintain}=await import('../lib/database-maintenance.ts');
 const {searchAtlas}=await import('../lib/atlas-search.ts');
 function database(){
-  const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync(new URL('../drizzle/0000_perpetual_lionheart.sql',import.meta.url),'utf8'));
+  const sqlite=new DatabaseSync(':memory:');for(const file of readdirSync(new URL('../drizzle/',import.meta.url)).filter(f=>f.endsWith('.sql')).sort())sqlite.exec(readFileSync(new URL('../drizzle/'+file,import.meta.url),'utf8'));
   return {sqlite,db:{prepare(sql){let args=[];return {bind(...values){args=values;return this;},async run(){return sqlite.prepare(sql).run(...args);},async first(){return sqlite.prepare(sql).get(...args)||null;},async all(){return {results:sqlite.prepare(sql).all(...args)};}};},async batch(statements){sqlite.exec('BEGIN');try{const result=[];for(const s of statements)result.push(await s.run());sqlite.exec('COMMIT');return result;}catch(e){sqlite.exec('ROLLBACK');throw e;}}}};
 }
 const input={role:'Python 后端工程师',city:'',experience:''};
@@ -58,4 +58,57 @@ test('零结果退避不冒充已有资料，也不重复触发收费调用',asy
   await searchAtlas(db,query,new AbortController().signal);
   const second=await searchAtlas(db,query,new AbortController().signal);
   assert.equal(second.jobs.length,0);assert.match(second.refresh.reason,/没有可复用/);assert.doesNotMatch(second.refresh.reason,/暂用已有资料/);assert.equal(calls,1);
+});
+
+const repeatCases=[
+  ['Java 后端工程师','Java 全栈开发工程师','Java'],
+  ['前端工程师','AI 前端研发工程师','React'],
+  ['数据工程师','ETL 工程师','SQL'],
+  ['机器学习工程师','推荐算法工程师','PyTorch'],
+  ['大模型应用开发','智能体研发工程师','RAG'],
+  ['数据分析师','商业智能工程师','SQL'],
+  ['测试开发工程师','QA 工程师','Python'],
+  ['运维工程师','SRE 工程师','Linux'],
+  ['安全工程师','应用安全工程师','Python'],
+  ['Android开发工程师','Android研发工程师','Kotlin'],
+  ['全栈工程师','全栈开发工程师','JavaScript'],
+  ['产品经理','高级产品经理','需求分析'],
+];
+for(const [role,title,skill] of repeatCases)test(`通用往返：${role} → ${title}`,async()=>{
+  const {db,sqlite}=database(),query={role,city:'上海',experience:'1–3 年'};let calls=0;
+  const quote=`熟练掌握 ${skill}，负责相关项目实践与交付。`;
+  const body=`${title}\n样本企业\n上海\n1-3年\n任职要求：${quote}`;
+  const doc={id:'j1',url:'https://www.liepin.com/job/987.shtml',title,body,verified:true};
+  const extraction={jobs:[{documentId:'j1',title,company:'样本企业',city:'上海',experience:'1-3年',publishedAt:null,metadataQuotes:{title,company:'样本企业',city:'上海',experience:'1-3年',publishedAt:''},skills:[{name:skill,category:'工程实践',description:'练习',quote}]}]};
+  globalThis.__refreshRecruitment=async()=>{calls++;return {docs:[doc],extraction,analysis:assembleAnalysis(query,[doc],extraction)};};
+  const first=await searchAtlas(db,query,new AbortController().signal);assert.equal(first.jobs.length,1);assert.equal(first.refresh.persisted,true);
+  const second=await searchAtlas(db,query,new AbortController().signal);assert.equal(second.jobs[0].id,first.jobs[0].id);assert.equal(second.skills[0].name,skill);assert.equal(calls,1);
+  assert.equal(sqlite.prepare('SELECT count(*) n FROM query_job_matches').get().n,1);
+  assert.equal((await readCache(db,{...query,city:'北京'})).jobs.length,0);
+  assert.equal((await readCache(db,{...query,experience:'5 年以上'})).jobs.length,0);
+});
+
+test('已关联职位不被300条更新候选挤掉；待复核/超期仍不可复用',async()=>{
+  const {db,sqlite}=database();await seed(db);const id=sqlite.prepare('SELECT id FROM job_documents').get().id;
+  const cols=sqlite.prepare('PRAGMA table_info(job_documents)').all().map(c=>c.name);
+  const select=cols.map(c=>['id','url','verified_at'].includes(c)?'?':c).join(',');
+  const clone=sqlite.prepare(`INSERT INTO job_documents(${cols.join(',')}) SELECT ${select} FROM job_documents WHERE id=?`);
+  for(let i=0;i<330;i++)clone.run(`noise-${i}`,`https://www.liepin.com/job/${i+10000}.shtml`,new Date(Date.now()+1000).toISOString(),id);
+  const cached=await readCache(db,input);assert.equal(cached.jobs[0].id,id);
+  sqlite.prepare("UPDATE job_documents SET state='needs_review' WHERE id=?").run(id);
+  assert.ok(!(await readCache(db,input)).jobs.some(j=>j.id===id));
+  sqlite.prepare("UPDATE job_documents SET state='verified',verified_at='2000-01-01',next_review_at='2000-01-02' WHERE id=?").run(id);
+  assert.ok(!(await readCache(db,input)).jobs.some(j=>j.id===id));
+});
+
+test('数据库回读异常不报完整入库、不延长成功退避，仍保留本轮结果',async()=>{
+  const {db,sqlite}=database();let calls=0;const prepare=db.prepare;
+  db.prepare=function(sql){if(sql.startsWith('SELECT * FROM job_documents')&&sqlite.prepare('SELECT count(*) n FROM job_documents').get().n>0)throw new Error('模拟回读故障');return prepare.call(this,sql);};
+  const title='Python 后端工程师',quote='熟练掌握 Python，负责服务端接口开发与测试。';
+  const doc={id:'j1',url:'https://www.liepin.com/job/456.shtml',title,body:`${title}\n样本企业\n任职要求：${quote}`,verified:true};
+  const extraction={jobs:[{documentId:'j1',title,company:'样本企业',city:'',experience:'',publishedAt:null,metadataQuotes:{title,company:'样本企业',city:'',experience:'',publishedAt:''},skills:[{name:'Python',category:'编程基础',description:'练习',quote}]}]};
+  globalThis.__refreshRecruitment=async()=>{calls++;return {docs:[doc],extraction,analysis:assembleAnalysis(input,[doc],extraction)};};
+  const result=await searchAtlas(db,input,new AbortController().signal);
+  assert.equal(result.jobs.length,1);assert.equal(result.refresh.persisted,false);assert.match(result.warnings.join(''),/回读未完成/);assert.equal(calls,1);
+  const topic=sqlite.prepare('SELECT next_search_at FROM search_topics').get();assert.ok(Date.parse(topic.next_search_at)-Date.now()<16*60000);
 });
