@@ -1,4 +1,5 @@
 import type { Analysis, Evidence, Job, Skill } from "./atlas";
+import { classifyRole, otherRoleMatches } from "./job-taxonomy.ts";
 export type Document = { id: string; url: string; title: string; body: string; verified?: boolean };
 type ExtractedJob = { documentId: string; title: string; company: string; city: string; experience: string; publishedAt: string | null; metadataQuotes: { title: string; company: string; city: string; experience: string; publishedAt: string }; skills: { name: string; category: string; description: string; quote: string }[] };
 export type Extraction = { jobs: ExtractedJob[] };
@@ -90,7 +91,7 @@ export function skillSupported(name: string, quote: string) {
     return false;
   });
 }
-export function jobMatchesRole(role: string, title: string) {
+export function jobMatchesRole(role: string, title: string, body = "") {
   const families: [RegExp, RegExp][] = [
     [/前端|front.?end/i, /前端|front.?end|全栈/i],
     [/数据工程|大数据|数仓/i, /数据工程|大数据|数据开发|数据平台|数仓|数据仓库|ETL|data.?engineer/i],
@@ -99,7 +100,7 @@ export function jobMatchesRole(role: string, title: string) {
     [/后端|服务端|back.?end/i, /后端|服务端|back.?end|全栈|Java|Python|Golang|开发工程师/i],
   ];
   const family = families.find(([pattern]) => pattern.test(role));
-  return !family || family[1].test(title);
+  return family ? family[1].test(title) : classifyRole(role).branch === "other" ? otherRoleMatches(role,title,body) : true;
 }
 export function assembleAnalysis(input: { role: string; city: string; experience: string }, docs: Document[], extraction: Extraction): Analysis {
   const jobs: Job[] = [], skills = new Map<string, Skill>(), fingerprints = new Set<string>(); const usedDocuments = new Set<string>();
@@ -107,7 +108,7 @@ export function assembleAnalysis(input: { role: string; city: string; experience
     const doc = docs.find(d => d.id === candidate.documentId); if (!doc || usedDocuments.has(doc.id)) continue;
     const m = candidate.metadataQuotes;
     // 岗位名必须出现在职位正文；搜索引擎标题不单独作为原文证据。
-    if (!attested(candidate.title, m.title, doc.body) || !jobMatchesRole(input.role, candidate.title)) continue;
+    if (!attested(candidate.title, m.title, doc.body) || !jobMatchesRole(input.role, candidate.title, doc.body)) continue;
     const company = attested(candidate.company, m.company, doc.body) ? candidate.company : "企业未注明";
     const city = attested(candidate.city, m.city, doc.body) ? candidate.city : "城市未注明";
     const experience = attested(candidate.experience, m.experience, doc.body) ? candidate.experience : "经验未注明";

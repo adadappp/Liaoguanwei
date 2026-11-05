@@ -21,7 +21,7 @@ export async function searchAtlas(db: D1Database | undefined, input: Query, sign
     if(db && !databaseFailed) {
       const recent = await db.prepare("SELECT next_search_at FROM search_topics WHERE id=?").bind(topic).first<{next_search_at:string|null}>();
       if(!force && recent?.next_search_at && recent.next_search_at>iso()) {
-        if(cached) { cached.warnings.unshift("该条件近期已补充检索；为避免重复付费，暂用已有资料。资料不足不代表市场没有招聘。"); cached.refresh={status:"deferred",persisted:false,reason:cached.warnings[0]}; return decorate(cached); }
+        if(cached) { cached.warnings.unshift(cached.jobs.length ? "该条件近期已补充检索；为避免重复付费，暂用已有资料。资料不足不代表市场没有招聘。" : `该条件近期已尝试检索，但当前没有可复用的合格职位。为避免重复付费，暂缓再次联网；可在 ${new Date(recent.next_search_at).toLocaleString("zh-CN",{timeZone:"Asia/Taipei",hour12:false})} 后重试，或调整关键词。无结果不代表市场没有招聘。`); cached.refresh={status:"deferred",persisted:false,reason:cached.warnings[0]}; return decorate(cached); }
       }
       if(!await claimBudget(db,"live-search",40)) {
         if(cached?.jobs.length) { cached.warnings.unshift("今日检索预算已用完，先展示历史已核验资料。"); cached.refresh={status:"deferred",persisted:false,reason:cached.warnings[0]}; return decorate(cached); }

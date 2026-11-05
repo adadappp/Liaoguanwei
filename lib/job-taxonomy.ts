@@ -32,14 +32,26 @@ export function classifyRole(title: string) {
   return { family: branch.split(".")[0], branch };
 }
 export const normalizeRole = (role: string) => role.normalize("NFKC").toLowerCase().replace(/[\s·_-]/g, "");
-export function cacheRoleMatches(role: string, title: string) {
+// 未覆盖的职业也需统一实时与历史匹配规则，不能实时接收后又被缓存按字面标题丢弃。
+export function otherRoleMatches(role: string, title: string, body = "") {
+  const query=normalizeRole(role), name=normalizeRole(title), text=normalizeRole(`${title}\n${body}`);
+  if(/建模|模型师|三维美术|3d美术/.test(query) && !/大模型|语言模型/.test(query)) {
+    if(!/建模|模型师|模型设计|模型制作|三维设计|3d设计|三维美术|3d美术|场景美术|环境美术|场景设计/.test(name))return false;
+    if(/场景|环境/.test(query)&&!/场景|环境/.test(text))return false;
+    if(/vr|虚拟现实/.test(query)&&!/vr|虚拟现实/.test(text))return false;
+    if(/角色|人物/.test(query)&&!/角色|人物/.test(text))return false;
+    return true;
+  }
+  const core=query.replace(/工程师|高级|开发/g, "");
+  return core.length>=2&&name.includes(core);
+}
+export function cacheRoleMatches(role: string, title: string, body = "") {
   const target = classifyRole(role), actual = classifyRole(title);
   // 一个AI应用职位也可能明确承担前/后端职责；主分类不能遮掉已经满足原岗位的证据。
   if(actual.family==="ai" && target.branch==="software.frontend" && /前端|front.?end/i.test(title)) return true;
   if(actual.family==="ai" && target.branch==="software.backend" && /后端|服务端|back.?end|Python|Java|Golang/i.test(title)) return true;
   if (target.branch !== "other") return target.branch === actual.branch || (target.branch === "software.frontend" && actual.branch === "software.fullstack");
-  const core = normalizeRole(role).replace(/工程师|高级|开发/g, "");
-  return core.length >= 2 && normalizeRole(title).includes(core);
+  return otherRoleMatches(role,title,body);
 }
 export function reviewDays(branch: string, stableRounds = 0, hot = false) {
   const base = branch.startsWith("ai.") ? 7 : 30;

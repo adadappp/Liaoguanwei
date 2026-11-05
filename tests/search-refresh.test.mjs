@@ -12,6 +12,7 @@ registerHooks({resolve(specifier,context,next){
   return next(specifier,context);
 }});
 const {maintain}=await import('../lib/database-maintenance.ts');
+const {searchAtlas}=await import('../lib/atlas-search.ts');
 function database(){
   const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync(new URL('../drizzle/0000_perpetual_lionheart.sql',import.meta.url),'utf8'));
   return {sqlite,db:{prepare(sql){let args=[];return {bind(...values){args=values;return this;},async run(){return sqlite.prepare(sql).run(...args);},async first(){return sqlite.prepare(sql).get(...args)||null;},async all(){return {results:sqlite.prepare(sql).all(...args)};}};},async batch(statements){sqlite.exec('BEGIN');try{const result=[];for(const s of statements)result.push(await s.run());sqlite.exec('COMMIT');return result;}catch(e){sqlite.exec('ROLLBACK');throw e;}}}};
@@ -40,4 +41,21 @@ test('维护真实SQL：成功零结果核验也可完成，保留历史资料�
   const {db,sqlite}=database();await seed(db);globalThis.__refreshRecruitment=async()=>({docs:[],extraction:{jobs:[]},analysis:{...input,jobs:[],skills:[],warnings:[],demo:false,retrievedAt:new Date().toISOString()}});
   const result=await maintain(db,new AbortController().signal,'topics');assert.equal(result.status,'completed');assert.equal(result.details.refresh.persisted,true);
   assert.equal(sqlite.prepare("SELECT status FROM user_feedback WHERE id='f'").get().status,'reviewed');assert.equal(sqlite.prepare('SELECT count(*) n FROM job_documents').get().n,1);
+});
+
+for(const title of ['VR场景模型师','三维场景美术师','VR场景建模师（Python工具开发）'])test(`VR重复搜索保留首次结果且不重复调用：${title}`,async()=>{
+  const {db}=database(),query={role:'vr场景建模师',city:'',experience:''};let calls=0;
+  const body=`${title}\n样本企业\n上海\n职位描述：负责虚拟现实 VR 场景建模与环境制作。\n任职要求：熟练掌握 Blender，制作三维场景模型与贴图。`;
+  const doc={id:'j1',url:'https://www.liepin.com/job/321.shtml',title,body,verified:true};
+  const extraction={jobs:[{documentId:'j1',title,company:'样本企业',city:'上海',experience:'',publishedAt:null,metadataQuotes:{title,company:'样本企业',city:'上海',experience:'',publishedAt:''},skills:[{name:'Blender',category:'工程实践',description:'场景建模',quote:'熟练掌握 Blender，制作三维场景模型与贴图。'}]}]};
+  globalThis.__refreshRecruitment=async()=>{calls++;return {docs:[doc],extraction,analysis:assembleAnalysis(query,[doc],extraction)};};
+  const first=await searchAtlas(db,query,new AbortController().signal);assert.equal(first.jobs.length,1);
+  const second=await searchAtlas(db,query,new AbortController().signal);assert.equal(second.jobs.length,1);assert.equal(second.skills[0].name,'Blender');assert.equal(second.jobs[0].id,first.jobs[0].id);assert.equal(calls,1);
+});
+test('零结果退避不冒充已有资料，也不重复触发收费调用',async()=>{
+  const {db}=database(),query={role:'vr场景建模师',city:'',experience:''};let calls=0;
+  globalThis.__refreshRecruitment=async()=>{calls++;return {docs:[],extraction:{jobs:[]},analysis:assembleAnalysis(query,[],{jobs:[]})};};
+  await searchAtlas(db,query,new AbortController().signal);
+  const second=await searchAtlas(db,query,new AbortController().signal);
+  assert.equal(second.jobs.length,0);assert.match(second.refresh.reason,/没有可复用/);assert.doesNotMatch(second.refresh.reason,/暂用已有资料/);assert.equal(calls,1);
 });

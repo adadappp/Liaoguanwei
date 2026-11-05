@@ -58,3 +58,11 @@ test('分类保守匹配、更新周期变化、混合结果不重复职位',()=
  const s=sample();assert.equal(mergeAnalysis(input,s.analysis,s.analysis).jobs.length,1);
  const changed={...s.analysis,skills:[]};assert.equal(mergeAnalysis(input,s.analysis,changed).skills.length,0);
 });
+test('VR场景建模别名需有对应正文，不能混入后端/算法/纯角色或无VR证据职位',()=>{
+  const role='vr场景建模师';
+  for(const title of ['Java 后端工程师','大模型算法工程师','产品经理'])assert.equal(cacheRoleMatches(role,title,'负责VR场景建模'),false);
+  assert.equal(cacheRoleMatches(role,'场景模型师','负责传统建筑模型制作'),false);
+  assert.equal(cacheRoleMatches(role,'VR角色模型师','负责人物模型制作'),false);
+  assert.equal(cacheRoleMatches(role,'三维场景美术师','负责虚拟现实环境模型'),true);
+  assert.equal(cacheRoleMatches('VR角色建模师','角色模型师','VR人物制作'),true);
+});
