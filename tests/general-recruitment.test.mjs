@@ -39,6 +39,10 @@ for(const [role,title,duty,skill] of examples)test(`通用真实流程（模拟�
   globalThis.fetch=async(url,options)=>{
     const data=JSON.parse(options.body);
     if(String(url).endsWith('/chat/completions')){
+      if(!data.messages[0].content.includes('名称解释器')){
+        const example=data.messages[0].content.match(/仅输出JSON：(\{.*\})。没有相关职位/);
+        assert.ok(example);assert.ok(JSON.parse(example[1]).jobs[0].roleMatch,'输出示例必须明确包含职责依据，避免模型只输出旧字段');
+      }
       models++;const content=data.messages[0].content.includes('名称解释器') ? intent : {jobs:[{documentId:'j1',title,company:'本地模拟企业',city:'上海',experience:'1-3年',publishedAt:null,metadataQuotes:{title,company:'本地模拟企业',city:'上海',experience:'1-3年',publishedAt:''},roleMatch:{relevant:true,duty,quote},skills:[{name:skill,category:'工具与软件',description:'岗位工具',quote}]}]};
       return Response.json({choices:[{message:{content:JSON.stringify(content)},finish_reason:'stop'}]});
     }

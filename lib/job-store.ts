@@ -98,5 +98,5 @@ export function mergeAnalysis(input: Query, cached: Analysis, live: Analysis): A
     for(const e of skill.evidence) if(ids.has(e.jobId) && !old.evidence.some(v=>v.jobId===e.jobId)) old.evidence.push(e);
     if(old.evidence.length) skills.set(key,old);
   }
-  return {...input,retrievedAt:iso(),demo:false,jobs:selected,skills:[...skills.values()].sort((a,b)=>b.evidence.length-a.evidence.length),warnings:[...new Set([...cached.jobs.length ? cached.warnings : [],...live.warnings])],coverage:live.coverage,storage:{mode:cached.jobs.length ? "mixed" : "live",cachedJobs:selected.filter(j=>j.evidenceStatus==="historical").length,liveJobs:selected.filter(j=>j.evidenceStatus!=="historical").length,topicId:""}};
+  return {...input,retrievedAt:iso(),demo:false,jobs:selected,skills:[...skills.values()].sort((a,b)=>b.evidence.length-a.evidence.length),warnings:[...new Set([...cached.jobs.length ? cached.warnings : [],...live.warnings])],coverage:live.coverage,validation:live.validation,storage:{mode:cached.jobs.length ? "mixed" : "live",cachedJobs:selected.filter(j=>j.evidenceStatus==="historical").length,liveJobs:selected.filter(j=>j.evidenceStatus!=="historical").length,topicId:""}};
 }
