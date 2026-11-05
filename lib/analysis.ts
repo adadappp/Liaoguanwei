@@ -101,33 +101,35 @@ export function roleEvidenceMatches(role:string,body:string,evidence:RoleEvidenc
 }
 export function assembleAnalysis(input: { role: string; city: string; experience: string }, docs: Document[], extraction: Extraction): Analysis {
   const jobs: Job[] = [], skills = new Map<string, Skill>(), fingerprints = new Set<string>(); const usedDocuments = new Set<string>();
+  const validation={extractedJobs:extraction.jobs.length,metadataRejected:0,roleRejected:0,filterRejected:0,duplicateRejected:0,evidenceRejected:0};
   for (const candidate of extraction.jobs) {
-    const doc = docs.find(d => d.id === candidate.documentId); if (!doc || usedDocuments.has(doc.id)) continue;
+    const doc = docs.find(d => d.id === candidate.documentId); if (!doc){validation.metadataRejected++;continue;} if(usedDocuments.has(doc.id)){validation.duplicateRejected++;continue;}
     const m = candidate.metadataQuotes;
     // 岗位名必须出现在职位正文；搜索引擎标题不单独作为原文证据。
     const roleMatched=jobMatchesRole(input.role,candidate.title,doc.body)||(Array.isArray(candidate.roleEvidence)&&candidate.roleEvidence.some(evidence=>roleEvidenceMatches(input.role,doc.body,evidence)));
-    if (!attested(candidate.title, m.title, doc.body) || !roleMatched) continue;
+    if (!attested(candidate.title, m.title, doc.body)){validation.metadataRejected++;continue;}
+    if(!roleMatched){validation.roleRejected++;continue;}
     const company = attested(candidate.company, m.company, doc.body) ? candidate.company : "企业未注明";
     const city = attested(candidate.city, m.city, doc.body) ? candidate.city : "城市未注明";
     const experience = attested(candidate.experience, m.experience, doc.body) ? candidate.experience : "经验未注明";
     // 筛选条件需有正文支撑；未知不能当作匹配。
-    if (input.city && input.city !== "全国远程" && !city.includes(input.city)) continue;
-    if (input.city === "全国远程" && !/远程|remote/i.test(doc.body)) continue;
+    if (input.city && input.city !== "全国远程" && !city.includes(input.city)){validation.filterRejected++;continue;}
+    if (input.city === "全国远程" && !/远程|remote/i.test(doc.body)){validation.filterRejected++;continue;}
     if (input.experience) {
       const key = input.experience.replace(/\s/g, "");
       const exp = experience.replace(/[–—~至]/g, "-").replace(/\s/g, "");
-      if (key === "实习/应届" ? !/实习|应届|校招|毕业生/.test(`${candidate.title}${experience}`) : key === "5年以上" ? !/(?:[5-9]|\d{2})年(?:以上|及以上)|(?:[5-9])-\d+年/.test(exp) : !exp.includes(key.replace("–", "-"))) continue;
+      if (key === "实习/应届" ? !/实习|应届|校招|毕业生/.test(`${candidate.title}${experience}`) : key === "5年以上" ? !/(?:[5-9]|\d{2})年(?:以上|及以上)|(?:[5-9])-\d+年/.test(exp) : !exp.includes(key.replace("–", "-"))){validation.filterRejected++;continue;}
     }
     const fingerprint = company === "企业未注明" ? normalize(doc.body) : normalize(`${company}|${candidate.title}|${city}`);
-    if (fingerprints.has(fingerprint)) continue;
+    if (fingerprints.has(fingerprint)){validation.duplicateRejected++;continue;}
     const validSkills = candidate.skills.flatMap(s => {
       const quote = s.quote.trim().length >= 5 ? sourceQuote(doc.body, s.quote) : null;
       return quote && skillSupported(s.name, quote) ? [{ ...s, quote }] : [];
     });
-    if (!validSkills.length) continue;
+    if (!validSkills.length){validation.evidenceRejected++;continue;}
     // 明确指定技术的岗位不能仅凭通用岗位名混入另一技术栈。
     const requiredTechnology = ["Python", "Java", "JavaScript", "TypeScript", "React", "Vue", "Golang"].find(technology => new RegExp(`(?:^|[^a-z])${technology}(?:$|[^a-z])`, "i").test(input.role));
-    if (requiredTechnology && !validSkills.some(skill => normalize(cleanName(skill.name)) === normalize(cleanName(requiredTechnology)))) continue;
+    if (requiredTechnology && !validSkills.some(skill => normalize(cleanName(skill.name)) === normalize(cleanName(requiredTechnology)))){validation.filterRejected++;continue;}
     fingerprints.add(fingerprint); usedDocuments.add(doc.id);
     const rawDate = candidate.publishedAt;
     const date = rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) && !Number.isNaN(Date.parse(rawDate)) && new Date(rawDate).toISOString().slice(0, 10) === rawDate && rawDate <= new Date().toISOString().slice(0, 10) && attested(rawDate, m.publishedAt, doc.body) ? rawDate : null;
@@ -143,5 +145,5 @@ export function assembleAnalysis(input: { role: string; city: string; experience
   const companies = new Set(jobs.filter(j => j.company !== "企业未注明").map(j => j.company));
   if (jobs.length > 0 && companies.size < 3) warnings.push("样本企业覆盖有限，可能偏向少数企业的要求。");
   if (docs.length > jobs.length) warnings.push("部分页面因岗位不符、筛选条件无依据、重复或缺少有效技能证据而排除。");
-  return { ...input, retrievedAt: new Date().toISOString(), demo: false, jobs, skills: [...skills.values()].sort((a, b) => b.evidence.length - a.evidence.length), warnings };
+  return { ...input, retrievedAt: new Date().toISOString(), demo: false, jobs, validation, skills: [...skills.values()].sort((a, b) => b.evidence.length - a.evidence.length), warnings };
 }
