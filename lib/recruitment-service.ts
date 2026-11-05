@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers";
 import { assembleAnalysis, inspectDocuments, sourceQuote, type Extraction } from "./analysis.ts";
 import { topicId, type Query } from "./job-store.ts";
 import { classifyRole } from "./job-taxonomy.ts";
-import { approvedDuty, resolveRoleIntent, roleKey, type RoleIntent } from "./role-intent.ts";
+import { resolveRoleIntent, roleKey, usefulDuty, usefulRoleQuote, type RoleIntent, type RoleEvidence } from "./role-intent.ts";
 import { searchRecruitment, verifyRecruitmentDocuments, type SearchAudit, type SearchResult } from "./recruitment-search.ts";
 const Extracted = z.object({ jobs: z.array(z.object({ documentId: z.string().max(30), title: z.string().min(1).max(150), company: z.string().max(150), city: z.string().max(100), experience: z.string().max(100), publishedAt: z.string().max(30).nullable(), roleMatch:z.object({relevant:z.boolean(),duty:z.string().max(60),quote:z.string().max(500)}).optional(), metadataQuotes: z.object({ title: z.string().max(500), company: z.string().max(500), city: z.string().max(500), experience: z.string().max(500), publishedAt: z.string().max(500) }), skills: z.array(z.object({ name: z.string().min(1).max(100), category: z.enum(["编程基础", "AI 与模型", "工程实践", "通用能力", "专业技能", "工具与软件", "行业知识", "作品与交付"]), description: z.string().max(300), quote: z.string().min(5).max(400) })).max(30) })).max(10) });
 export const domains = ["zhipin.com", "zhaopin.com", "zhaopin.cn", "51job.com", "liepin.com", "lagou.com", "jobs.bytedance.com", "careers.tencent.com", "zhaopin.jd.com", "talent.baidu.com", "talent.alibaba.com", "jobs.bilibili.com", "join.qq.com", "career.huawei.com", "hr.xiaomi.com", "zhaopin.meituan.com"];
@@ -72,7 +72,12 @@ export async function runRecruitment(input: Query, signal: AbortSignal, supplied
     modelJobs=validated.data.jobs.length;modelRoleRejected=validated.data.jobs.filter(job=>job.roleMatch?.relevant===false).length;missingRoleMatch=validated.data.jobs.filter(job=>!job.roleMatch).length;
     const extracted:Extraction={jobs:validated.data.jobs.filter(job=>job.roleMatch?.relevant!==false).map(({roleMatch,...job})=>{
       const doc=docs.find(doc=>doc.id===job.documentId);
-      const proof=intent&&roleMatch?.relevant&&approvedDuty(intent,roleMatch.duty)&&doc&&sourceQuote(doc.body,roleMatch.quote)&&roleKey(roleMatch.quote).includes(roleKey(roleMatch.duty)) ? [{role:roleKey(input.role),duty:roleMatch.duty,quote:roleMatch.quote}] : [];
+      const proof:RoleEvidence[]=[];
+      if(intent&&roleMatch?.relevant&&doc){
+        if(usefulDuty(roleMatch.duty)&&usefulRoleQuote(roleMatch.quote)&&sourceQuote(doc.body,roleMatch.quote))proof.push({role:roleKey(input.role),duty:roleMatch.duty,quote:roleMatch.quote});
+        // 中文标准名只是英文输入的翻译时，核验真实职位标题即可；不要求职责标签逐字相同。
+        else if(roleKey(job.title).includes(roleKey(intent.canonicalTitle))&&sourceQuote(doc.body,job.metadataQuotes.title)&&roleKey(job.metadataQuotes.title).includes(roleKey(intent.canonicalTitle)))proof.push({role:roleKey(input.role),duty:intent.canonicalTitle,quote:job.metadataQuotes.title,kind:"title"});
+      }
       if(intent&&roleMatch?.relevant&&!proof.length)invalidRoleProof++;
       return {...job,...proof.length?{roleEvidence:proof}:{}};
     })};

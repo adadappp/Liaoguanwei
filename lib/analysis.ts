@@ -1,6 +1,6 @@
 import type { Analysis, Evidence, Job, Skill } from "./atlas";
 import { matchesRole as jobMatchesRole } from "./job-taxonomy.ts";
-import { candidateRoleScore, roleKey, usefulDuty, type RoleIntent, type RoleEvidence } from "./role-intent.ts";
+import { candidateRoleScore, roleKey, usefulDuty, usefulRoleQuote, type RoleIntent, type RoleEvidence } from "./role-intent.ts";
 export type Document = { id: string; url: string; title: string; body: string; verified?: boolean };
 type ExtractedJob = { documentId: string; title: string; company: string; city: string; experience: string; publishedAt: string | null; metadataQuotes: { title: string; company: string; city: string; experience: string; publishedAt: string }; skills: { name: string; category: string; description: string; quote: string }[]; roleEvidence?: RoleEvidence[] };
 export type Extraction = { jobs: ExtractedJob[] };
@@ -97,7 +97,9 @@ export function skillSupported(name: string, quote: string) {
 }
 export { jobMatchesRole };
 export function roleEvidenceMatches(role:string,body:string,evidence:RoleEvidence){
-  return evidence&&typeof evidence.role==="string"&&evidence.role===roleKey(role)&&typeof evidence.duty==="string"&&usefulDuty(evidence.duty)&&typeof evidence.quote==="string"&&evidence.quote.trim().length>=8&&evidence.quote.length<=500&&!!sourceQuote(body,evidence.quote)&&normalize(evidence.quote).includes(normalize(evidence.duty));
+  if(!evidence||typeof evidence.role!=="string"||evidence.role!==roleKey(role)||typeof evidence.duty!=="string"||!usefulDuty(evidence.duty)||typeof evidence.quote!=="string"||evidence.quote.length>500||!sourceQuote(body,evidence.quote))return false;
+  if(evidence.kind==="title")return evidence.quote.trim().length>=2&&normalize(evidence.quote).includes(normalize(evidence.duty));
+  return evidence.quote.trim().length>=8&&usefulRoleQuote(evidence.quote);
 }
 export function assembleAnalysis(input: { role: string; city: string; experience: string }, docs: Document[], extraction: Extraction): Analysis {
   const jobs: Job[] = [], skills = new Map<string, Skill>(), fingerprints = new Set<string>(); const usedDocuments = new Set<string>();

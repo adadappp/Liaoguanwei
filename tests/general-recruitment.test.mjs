@@ -83,6 +83,16 @@ test('专项匹配不能借用其他查询、改写引文或通用素质',()=>{
   assert.equal(roleEvidenceMatches('Compositor',quote,{...proof,quote:'虚构的镜头合成岗位要求'}),false);
   assert.equal(roleEvidenceMatches('Compositor','具备沟通能力，重视团队合作。',{...proof,duty:'沟通能力',quote:'具备沟通能力，重视团队合作。'}),false);
 });
+test('职责概括不是引文，语义标签不同不应拒绝真实连续职责原文',()=>{
+  const quote='负责影视镜头的抠像、跟踪和合成工作，使用 Nuke 交付镜头。';
+  assert.equal(roleEvidenceMatches('Compositor',quote,{role:roleKey('Compositor'),duty:'视效制作',quote}),true);
+});
+test('英文职业映射的中文标准名可以真实标题核验，不能借未出现的标题',()=>{
+  const body='高级技术美术师\n任职要求：熟悉Unity引擎和材质流程。';
+  const proof={role:roleKey('Technical Artist'),duty:'技术美术',quote:'高级技术美术师',kind:'title'};
+  assert.equal(roleEvidenceMatches('Technical Artist',body,proof),true);
+  assert.equal(roleEvidenceMatches('Technical Artist',body,{...proof,quote:'不存在的技术美术岗位'}),false);
+});
 test('有职责信号的非技术来源先进入读取名额，仍保留原文门槛',()=>{
   const intent={canonicalTitle:'视效合成师',aliases:['Compositor'],duties:['镜头合成'],excludedRoles:['后端工程师'],sector:'creative'};
   const make=(url,title,extra)=>({url,title,raw_content:`${title}\n任职要求：${extra}\n`+'参与项目工作，完成素材整理与项目交付。'.repeat(20)});
