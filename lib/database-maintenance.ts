@@ -4,6 +4,7 @@ import { searchAtlas } from "./atlas-search.ts";
 import { SOURCE_CATALOG } from "./source-catalog.ts";
 import { TAXONOMY } from "./job-taxonomy.ts";
 import lagouLeads from "../db/lagou-leads.json";
+import { maintenanceStatus, topicRefreshResult } from "./maintenance-result.ts";
 export async function bootstrap(db: D1Database) {
   const now=iso();
   await db.batch(SOURCE_CATALOG.map(s=>db.prepare("INSERT INTO data_sources(id,name,url,license,status,notes,checked_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,url=excluded.url,license=excluded.license,status=excluded.status,notes=excluded.notes,checked_at=excluded.checked_at").bind(s.id,s.name,s.url,s.license,s.status,s.notes,now)));
@@ -13,7 +14,7 @@ export async function bootstrap(db: D1Database) {
 }
 export async function maintain(db: D1Database,signal: AbortSignal,mode:"review"|"leads"|"topics"="review",jobId?:string) {
   const token=await acquireLease(db,"maintenance",100); if(!token) throw new Error("已有更新任务正在运行。");
-  const id=crypto.randomUUID(),started=iso(); let details: unknown={};
+  const id=crypto.randomUUID(),started=iso(); let details: unknown={}, topicStatus: "completed"|"partial"="completed";
   try {
     if(!await claimBudget(db,"maintenance",6)) throw new Error("今日后台更新预算已用完。");
     await db.prepare("INSERT INTO update_runs(id,kind,status,started_at,details_json) VALUES(?,?,'running',?,'{}')").bind(id,mode,started).run();
@@ -21,9 +22,10 @@ export async function maintain(db: D1Database,signal: AbortSignal,mode:"review"|
       const topic=await db.prepare("SELECT role,city,experience FROM search_topics WHERE (next_search_at IS NULL OR next_search_at<=?) AND last_seen_at>=? ORDER BY EXISTS(SELECT 1 FROM user_feedback f WHERE f.topic_id=search_topics.id AND f.status IN ('pending','retry') AND f.kind='missing') DESC,hits DESC,last_seen_at DESC LIMIT 1").bind(iso(),new Date(Date.now()-30*86400000).toISOString()).first<Query>();
       if(topic) {
         const analysis=await searchAtlas(db,topic,signal,true);
+        const refresh=topicRefreshResult(analysis); topicStatus=refresh.status;
         const {topicId}=await import("./job-store.ts");
-        if(analysis.storage?.mode!=="database") await db.prepare("UPDATE user_feedback SET status='reviewed',resolution=?,updated_at=? WHERE topic_id=? AND kind='missing' AND status IN ('pending','retry')").bind(`已按原筛选重新检索，返回${analysis.jobs.length}条资料；不代表市场全部岗位。`,iso(),await topicId(topic)).run();
-        details={topic,accepted:analysis.jobs.length,storage:analysis.storage};
+        if(refresh.resolveFeedback) await db.prepare("UPDATE user_feedback SET status='reviewed',resolution=?,updated_at=? WHERE topic_id=? AND kind='missing' AND status IN ('pending','retry')").bind(`已按原筛选重新检索，返回${analysis.jobs.length}条资料；不代表市场全部岗位。`,iso(),await topicId(topic)).run();
+        details={topic,accepted:analysis.jobs.length,storage:analysis.storage,refresh:analysis.refresh,...refresh.reason?{message:refresh.reason}:{}};
       } else details={message:"没有到期且近期被查询的主题。"};
     } else {
       const candidates = mode==="leads"
@@ -54,7 +56,7 @@ export async function maintain(db: D1Database,signal: AbortSignal,mode:"review"|
       details={processed:outcomes.length,outcomes};
     }
     const outcomes=(details as {outcomes?:{status:string}[]}).outcomes;
-    const status=outcomes?.some(row=>row.status==="retry") ? "partial" : "completed";
+    const status=outcomes ? maintenanceStatus(outcomes) : topicStatus;
     await db.prepare("UPDATE update_runs SET status=?,completed_at=?,details_json=? WHERE id=?").bind(status,iso(),JSON.stringify(details),id).run();
     return {id,status,details};
   } catch(error) {

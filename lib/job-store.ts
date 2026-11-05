@@ -12,8 +12,9 @@ export async function recordTopic(db: D1Database, input: Query, countHit = true)
   await db.prepare(`INSERT INTO search_topics (id,role,city,experience,family,hits,last_seen_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET hits=hits+?,last_seen_at=CASE WHEN ?=1 THEN excluded.last_seen_at ELSE last_seen_at END`).bind(id,input.role,input.city,input.experience,classifyRole(input.role).family,countHit ? 1 : 0,iso(),countHit ? 1 : 0,countHit ? 1 : 0).run();
   return id;
 }
+export const budgetDay = () => new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
 export async function claimBudget(db: D1Database, kind: string, limit: number) {
-  const day = new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+  const day = budgetDay();
   const row = await db.prepare(`INSERT INTO request_budgets(id,used,updated_at) VALUES(?,1,?) ON CONFLICT(id) DO UPDATE SET used=used+1,updated_at=excluded.updated_at WHERE used<? RETURNING used`).bind(`${kind}:${day}`,iso(),limit).first();
   return !!row;
 }
