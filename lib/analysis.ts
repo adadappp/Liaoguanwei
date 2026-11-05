@@ -1,7 +1,8 @@
 import type { Analysis, Evidence, Job, Skill } from "./atlas";
 import { matchesRole as jobMatchesRole } from "./job-taxonomy.ts";
+import { candidateRoleScore, roleKey, usefulDuty, type RoleIntent, type RoleEvidence } from "./role-intent.ts";
 export type Document = { id: string; url: string; title: string; body: string; verified?: boolean };
-type ExtractedJob = { documentId: string; title: string; company: string; city: string; experience: string; publishedAt: string | null; metadataQuotes: { title: string; company: string; city: string; experience: string; publishedAt: string }; skills: { name: string; category: string; description: string; quote: string }[] };
+type ExtractedJob = { documentId: string; title: string; company: string; city: string; experience: string; publishedAt: string | null; metadataQuotes: { title: string; company: string; city: string; experience: string; publishedAt: string }; skills: { name: string; category: string; description: string; quote: string }[]; roleEvidence?: RoleEvidence[] };
 export type Extraction = { jobs: ExtractedJob[] };
 export const normalize = (text: string) => text.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
 export function levelForQuote(quote: string): Evidence["level"] {
@@ -29,7 +30,7 @@ export function isRecruitmentDetailUrl(url: string) {
 }
 export type DocumentAudit = { candidates: number; invalidUrl: number; offSource: number; notDetail: number; noBody: number; blocked: number; duplicate: number; overLimit: number };
 export const blockedContent = (body: string) => /验证码.{0,12}(访问|验证)|请完成安全验证|访问过于频繁|滑动.{0,8}验证|访问受限/.test(body);
-export function inspectDocuments(results: { url?: string; title?: string; raw_content?: string | null; verified?: boolean }[], domains: string[], input?: { role: string; city: string; experience: string }) {
+export function inspectDocuments(results: { url?: string; title?: string; raw_content?: string | null; verified?: boolean }[], domains: string[], input?: { role: string; city: string; experience: string }, intent?:RoleIntent|null) {
   const audit: DocumentAudit = { candidates: results.length, invalidUrl: 0, offSource: 0, notDetail: 0, noBody: 0, blocked: 0, duplicate: 0, overLimit: 0 };
   const urls = new Set<string>(), bodies = new Set<string>(); const docs: Document[] = [];
   for (const result of results) {
@@ -50,12 +51,15 @@ export function inspectDocuments(results: { url?: string; title?: string; raw_co
     const score = (doc: Document) => {
       const text = normalize(doc.body).replace(/[–—~至]/g, "-");
       const core = normalize(input.role).replace(/工程师|高级|开发/g, "");
-      return (core && normalize(doc.title).includes(core) ? 6 : 0) + (jobMatchesRole(input.role, doc.title) ? 2 : 0) + (input.city && text.includes(normalize(input.city)) ? 4 : 0) + (input.experience && text.includes(normalize(input.experience).replace(/[–—~至]/g, "-")) ? 4 : 0);
+      return candidateRoleScore(input.role,doc.title,doc.body,intent)+(core && normalize(doc.title).includes(core) ? 6 : 0) + (jobMatchesRole(input.role, doc.title,doc.body) ? 10 : 0) + (input.city && text.includes(normalize(input.city)) ? 4 : 0) + (input.experience && text.includes(normalize(input.experience).replace(/[–—~至]/g, "-")) ? 4 : 0);
     };
     for (const group of groups.values()) group.sort((a, b) => score(b) - score(a));
   }
   const selected: Document[] = [];
-  while (selected.length < Math.min(10, docs.length)) for (const group of groups.values()) { const doc = group.shift(); if (doc && selected.length < 10) selected.push({ ...doc, id: `j${selected.length + 1}` }); }
+  // 先轮换有职业相关信号的来源，再补不确定候选，避免无关技术公司占满读取名额。
+  const relevant=(doc:Document)=>!!input&&(jobMatchesRole(input.role,doc.title,doc.body)||candidateRoleScore(input.role,doc.title,doc.body,intent)>0);
+  const pools=input ? [[...groups.values()].map(group=>group.filter(relevant)),[...groups.values()].map(group=>group.filter(doc=>!relevant(doc)))] : [[...groups.values()]];
+  for(const pool of pools)while(selected.length<10&&pool.some(group=>group.length))for(const group of pool){const doc=group.shift();if(doc&&selected.length<10)selected.push({...doc,id:`j${selected.length+1}`});}
   audit.overLimit = docs.length - selected.length;
   return { documents: selected, audit };
 }
@@ -92,13 +96,17 @@ export function skillSupported(name: string, quote: string) {
   });
 }
 export { jobMatchesRole };
+export function roleEvidenceMatches(role:string,body:string,evidence:RoleEvidence){
+  return evidence&&typeof evidence.role==="string"&&evidence.role===roleKey(role)&&typeof evidence.duty==="string"&&usefulDuty(evidence.duty)&&typeof evidence.quote==="string"&&evidence.quote.trim().length>=8&&evidence.quote.length<=500&&!!sourceQuote(body,evidence.quote)&&normalize(evidence.quote).includes(normalize(evidence.duty));
+}
 export function assembleAnalysis(input: { role: string; city: string; experience: string }, docs: Document[], extraction: Extraction): Analysis {
   const jobs: Job[] = [], skills = new Map<string, Skill>(), fingerprints = new Set<string>(); const usedDocuments = new Set<string>();
   for (const candidate of extraction.jobs) {
     const doc = docs.find(d => d.id === candidate.documentId); if (!doc || usedDocuments.has(doc.id)) continue;
     const m = candidate.metadataQuotes;
     // 岗位名必须出现在职位正文；搜索引擎标题不单独作为原文证据。
-    if (!attested(candidate.title, m.title, doc.body) || !jobMatchesRole(input.role, candidate.title, doc.body)) continue;
+    const roleMatched=jobMatchesRole(input.role,candidate.title,doc.body)||(Array.isArray(candidate.roleEvidence)&&candidate.roleEvidence.some(evidence=>roleEvidenceMatches(input.role,doc.body,evidence)));
+    if (!attested(candidate.title, m.title, doc.body) || !roleMatched) continue;
     const company = attested(candidate.company, m.company, doc.body) ? candidate.company : "企业未注明";
     const city = attested(candidate.city, m.city, doc.body) ? candidate.city : "城市未注明";
     const experience = attested(candidate.experience, m.experience, doc.body) ? candidate.experience : "经验未注明";

@@ -1,4 +1,4 @@
-import { assembleAnalysis, canonicalUrl, normalize, type Document, type Extraction } from "./analysis.ts";
+import { assembleAnalysis, canonicalUrl, normalize, roleEvidenceMatches, type Document, type Extraction } from "./analysis.ts";
 import type { Analysis } from "./atlas.ts";
 import { classifyRole, normalizeRole, reviewDays } from "./job-taxonomy.ts";
 export type Query = { role: string; city: string; experience: string };
@@ -60,7 +60,13 @@ export async function saveVerified(db: D1Database, input: Query, docs: Document[
     const existing = await db.prepare("SELECT id,body_hash,stable_rounds,verified_at FROM job_documents WHERE url=?").bind(url).first<{id:string;body_hash:string;stable_rounds:number;verified_at:string}>();
     const id = existing?.id || await hash(job.company === "企业未注明" ? url : normalize(`${job.company}|${job.title}|${job.city}`));
     const bodyHash = await hash(doc.body), stable = existing?.body_hash === bodyHash ? Math.min(existing.stable_rounds+(Date.now()-Date.parse(existing.verified_at)>86400000?1:0),5) : 0;
-    const category = classifyRole(job.title); const payload = JSON.stringify({...raw,documentId:id});
+    const category = classifyRole(job.title);
+    const previous=await db.prepare("SELECT body_hash,extraction_json FROM job_documents WHERE id=?").bind(id).first<{body_hash:string;extraction_json:string}>();
+    let oldEvidence:NonNullable<Extraction["jobs"][number]["roleEvidence"]>=[];
+    if(previous?.body_hash===bodyHash)try{const stored=JSON.parse(previous.extraction_json);if(Array.isArray(stored.roleEvidence))oldEvidence=stored.roleEvidence.filter((e:NonNullable<Extraction["jobs"][number]["roleEvidence"]>[number])=>e&&typeof e.role==="string"&&roleEvidenceMatches(e.role,doc.body,e));}catch{/* 损坏的历史匹配依据不复用 */}
+    const proof=new Map<string,NonNullable<Extraction["jobs"][number]["roleEvidence"]>[number]>();
+    for(const evidence of [...raw.roleEvidence||[],...oldEvidence])if(!proof.has(evidence.role)&&roleEvidenceMatches(evidence.role,doc.body,evidence))proof.set(evidence.role,evidence);
+    const payload = JSON.stringify({...raw,documentId:id,...proof.size?{roleEvidence:[...proof.values()].slice(0,20)}:{}});
     const hot = await db.prepare("SELECT hits FROM search_topics WHERE id=?").bind(await topicId(input)).first<{hits:number}>();
     const review = later(reviewDays(category.branch,stable,(hot?.hits || 0)>=10));
     await db.batch([

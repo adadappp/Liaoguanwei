@@ -28,6 +28,7 @@ export const queries = sqliteTable("search_topics", {
   id: text("id").primaryKey(), role: text("role").notNull(), city: text("city").notNull(), experience: text("experience").notNull(),
   family: text("family").notNull(), hits: integer("hits").notNull().default(0), lastSeenAt: text("last_seen_at").notNull(),
   lastSearchAt: text("last_search_at"), nextSearchAt: text("next_search_at"), leaseUntil: text("lease_until"), leaseToken: text("lease_token"),
+  roleIntent: text("role_intent_json"),
 });
 export const queryJobs = sqliteTable("query_job_matches", {
   topicId: text("topic_id").notNull().references(() => queries.id, {onDelete:"cascade"}),

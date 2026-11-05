@@ -1,30 +1,33 @@
 // 仅使用搜索供应商返回的页面正文，不使用 snippet / summary 代替原文。
-import { canonicalUrl, isRecruitmentDetailUrl, prepareDocuments, blockedContent, type Document } from "./analysis.ts";
+import { canonicalUrl, isRecruitmentDetailUrl, prepareDocuments, inspectDocuments, blockedContent, type Document } from "./analysis.ts";
 import { roleConcept } from "./role-concepts.ts";
+import { candidateRoleScore, intentTerms, type RoleIntent } from "./role-intent.ts";
 export type SearchResult = { url?: string; title?: string; raw_content?: string | null; verified?: boolean };
 export type JsonRequest = (url: string, key: string, data: unknown, signal: AbortSignal) => Promise<unknown>;
 export type SearchProvider = "deepseek" | "tavily";
 export type SearchAudit = { searchRequests: number; failedSearches: number; bodyFetches: number; failedFetches: number };
-export function recruitmentQueries(input: { role: string; city: string; experience: string }, domains: string[]) {
+export function recruitmentQueries(input: { role: string; city: string; experience: string }, domains: string[],intent?:RoleIntent|null) {
   const concept=roleConcept(input.role);
-  const makeBase=(role:string)=>Array.from(`${role} ${input.city} ${input.experience} 招聘 任职要求`.trim()).slice(0,110).join("");
-  const base = makeBase(concept?.searchTerms[0]||input.role);
+  const variants=intentTerms(input.role,intent);
+  const terms=intent ? [variants[0],variants[1]||input.role,variants[2]||`${intent.canonicalTitle} ${intent.duties[0]}`] : concept?.searchTerms;
+  const makeBase=(role:string)=>{const suffix=` ${input.city} ${input.experience} 中国大陆 招聘 任职要求`;return `${Array.from(role).slice(0,110-Array.from(suffix).length).join("")}${suffix}`.trim();};
+  const base = makeBase(terms?.[0]||input.role);
   const groups = [domains.filter(d => /^(zhipin|zhaopin|liepin|51job|lagou)\./.test(d)), domains.filter(d => !/^(zhipin|zhaopin|liepin|51job|lagou)\./.test(d))];
-  const targets=concept ? [groups[0],groups[0]] : groups;
+  const targets=terms && intent?.sector!=="technical" ? [groups[0],groups[0]] : groups;
   return [base, ...targets.map((group,index) => {
-    const variant=concept ? makeBase(concept.searchTerms[index+1]) : base;
+    const variant=terms ? makeBase(terms[index+1]) : base;
     let suffix = "";
     for (const domain of group) { const next = suffix ? `${suffix} OR site:${domain}` : `site:${domain}`; if (Array.from(`${variant} ${next}`).length <= 128) suffix = next; }
-    return suffix ? `${variant} ${suffix}` : concept ? variant : "";
+    return suffix ? `${variant} ${suffix}` : terms ? variant : "";
   }).filter(Boolean)];
 }
 
 export async function searchRecruitment(
   provider: SearchProvider, key: string, input: { role: string; city: string; experience: string },
-  domains: string[], signal: AbortSignal, request: JsonRequest, audit: SearchAudit = { searchRequests: 0, failedSearches: 0, bodyFetches: 0, failedFetches: 0 },
+  domains: string[], signal: AbortSignal, request: JsonRequest, audit: SearchAudit = { searchRequests: 0, failedSearches: 0, bodyFetches: 0, failedFetches: 0 },intent?:RoleIntent|null,
 ): Promise<SearchResult[]> {
   const concept=roleConcept(input.role);
-  const query = `中国大陆 ${concept ? `(${concept.searchTerms.map(term=>`(${term})`).join(" OR ")})` : input.role} ${input.city} ${input.experience} 招聘 任职要求 职位详情`;
+  const query = `中国大陆 ${intent ? intentTerms(input.role,intent).slice(0,3).join(" OR ") : concept ? `(${concept.searchTerms.map(term=>`(${term})`).join(" OR ")})` : input.role} ${input.city} ${input.experience} 招聘 任职要求 职位详情`;
   if (provider === "tavily") {
     audit.searchRequests++;
     const response = await request("https://api.tavily.com/search", key, {
@@ -43,9 +46,9 @@ export async function searchRecruitment(
       return response.results.map(result => ({ url: typeof result?.url === "string" ? result.url : "", title: typeof result?.title === "string" ? result.title : "", raw_content: typeof result?.content === "string" ? result.content : null }));
     } catch (error) { audit.failedSearches++; throw error; }
   }
-  const queries = recruitmentQueries(input, domains);
+  const queries = recruitmentQueries(input, domains,intent);
   const results = await search(queries[0]);
-  const primary = prepareDocuments(results, domains);
+  const primary = intent ? inspectDocuments(results,domains,input,intent).documents.filter(doc=>candidateRoleScore(input.role,doc.title,doc.body,intent)>0) : prepareDocuments(results, domains);
   const sources = new Set(primary.map(doc => { const host = new URL(doc.url).hostname; return domains.find(domain => host === domain || host.endsWith(`.${domain}`)); }));
   if (primary.length < 8 || sources.size < 3) {
     const extra = await Promise.allSettled(queries.slice(1, 3).map(search));

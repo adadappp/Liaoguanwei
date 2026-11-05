@@ -1,0 +1,1 @@
+ALTER TABLE `search_topics` ADD `role_intent_json` text;
