@@ -73,11 +73,14 @@ const repeatCases=[
   ['Android开发工程师','Android研发工程师','Kotlin'],
   ['全栈工程师','全栈开发工程师','JavaScript'],
   ['产品经理','高级产品经理','需求分析'],
+  ['Foley拟音师','影视拟音师','Pro Tools'],
+  ['Foley Artist','动效Foley录音/编辑','Pro Tools'],
+  ['Foley拟音师','游戏音效设计师','Pro Tools','负责Foley拟音录制与声音编辑。'],
 ];
-for(const [role,title,skill] of repeatCases)test(`通用往返：${role} → ${title}`,async()=>{
+for(const [role,title,skill,specialty=''] of repeatCases)test(`通用往返：${role} → ${title}`,async()=>{
   const {db,sqlite}=database(),query={role,city:'上海',experience:'1–3 年'};let calls=0;
   const quote=`熟练掌握 ${skill}，负责相关项目实践与交付。`;
-  const body=`${title}\n样本企业\n上海\n1-3年\n任职要求：${quote}`;
+  const body=`${title}\n样本企业\n上海\n1-3年\n${specialty}\n任职要求：${quote}`;
   const doc={id:'j1',url:'https://www.liepin.com/job/987.shtml',title,body,verified:true};
   const extraction={jobs:[{documentId:'j1',title,company:'样本企业',city:'上海',experience:'1-3年',publishedAt:null,metadataQuotes:{title,company:'样本企业',city:'上海',experience:'1-3年',publishedAt:''},skills:[{name:skill,category:'工程实践',description:'练习',quote}]}]};
   globalThis.__refreshRecruitment=async()=>{calls++;return {docs:[doc],extraction,analysis:assembleAnalysis(query,[doc],extraction)};};

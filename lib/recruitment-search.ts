@@ -1,16 +1,21 @@
 // 仅使用搜索供应商返回的页面正文，不使用 snippet / summary 代替原文。
 import { canonicalUrl, isRecruitmentDetailUrl, prepareDocuments, blockedContent, type Document } from "./analysis.ts";
+import { roleConcept } from "./role-concepts.ts";
 export type SearchResult = { url?: string; title?: string; raw_content?: string | null; verified?: boolean };
 export type JsonRequest = (url: string, key: string, data: unknown, signal: AbortSignal) => Promise<unknown>;
 export type SearchProvider = "deepseek" | "tavily";
 export type SearchAudit = { searchRequests: number; failedSearches: number; bodyFetches: number; failedFetches: number };
 export function recruitmentQueries(input: { role: string; city: string; experience: string }, domains: string[]) {
-  const base = Array.from(`${input.role} ${input.city} ${input.experience} 招聘 任职要求`.trim()).slice(0, 110).join("");
+  const concept=roleConcept(input.role);
+  const makeBase=(role:string)=>Array.from(`${role} ${input.city} ${input.experience} 招聘 任职要求`.trim()).slice(0,110).join("");
+  const base = makeBase(concept?.searchTerms[0]||input.role);
   const groups = [domains.filter(d => /^(zhipin|zhaopin|liepin|51job|lagou)\./.test(d)), domains.filter(d => !/^(zhipin|zhaopin|liepin|51job|lagou)\./.test(d))];
-  return [base, ...groups.map(group => {
+  const targets=concept ? [groups[0],groups[0]] : groups;
+  return [base, ...targets.map((group,index) => {
+    const variant=concept ? makeBase(concept.searchTerms[index+1]) : base;
     let suffix = "";
-    for (const domain of group) { const next = suffix ? `${suffix} OR site:${domain}` : `site:${domain}`; if (Array.from(`${base} ${next}`).length <= 128) suffix = next; }
-    return suffix ? `${base} ${suffix}` : "";
+    for (const domain of group) { const next = suffix ? `${suffix} OR site:${domain}` : `site:${domain}`; if (Array.from(`${variant} ${next}`).length <= 128) suffix = next; }
+    return suffix ? `${variant} ${suffix}` : concept ? variant : "";
   }).filter(Boolean)];
 }
 
@@ -18,7 +23,8 @@ export async function searchRecruitment(
   provider: SearchProvider, key: string, input: { role: string; city: string; experience: string },
   domains: string[], signal: AbortSignal, request: JsonRequest, audit: SearchAudit = { searchRequests: 0, failedSearches: 0, bodyFetches: 0, failedFetches: 0 },
 ): Promise<SearchResult[]> {
-  const query = `中国大陆 ${input.role} ${input.city} ${input.experience} 招聘 任职要求 职位详情`;
+  const concept=roleConcept(input.role);
+  const query = `中国大陆 ${concept ? `(${concept.searchTerms.map(term=>`(${term})`).join(" OR ")})` : input.role} ${input.city} ${input.experience} 招聘 任职要求 职位详情`;
   if (provider === "tavily") {
     audit.searchRequests++;
     const response = await request("https://api.tavily.com/search", key, {

@@ -1,3 +1,4 @@
+import { conceptRoleMatch } from "./role-concepts.ts";
 export const TAXONOMY = [
   ["engineering", null, "技术研发", "中国大陆 AI 与互联网技术岗位"],
   ["ai", "engineering", "AI 与算法", "模型、算法及应用研发"],
@@ -46,6 +47,7 @@ export function otherRoleMatches(role: string, title: string, body = "") {
   return core.length>=2&&name.includes(core);
 }
 export function matchesRole(role: string, title: string, body = "") {
+  const concept=conceptRoleMatch(role,title,body);if(concept!==null)return concept;
   const families: [RegExp, RegExp][] = [
     [/前端|front.?end/i, /前端|front.?end|全栈/i],
     [/数据工程|大数据|数仓/i, /数据工程|大数据|数据开发|数据平台|数仓|数据仓库|ETL|data.?engineer/i],
