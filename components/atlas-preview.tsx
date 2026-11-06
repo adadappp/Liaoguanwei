@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUpRight, BookOpen, Check, ChevronRight, FileText, Layers3, Pause, Play, Search } from "lucide-react";
+import { ArrowUpRight, BookOpen, Check, ChevronRight, FileText, Layers3, Search } from "lucide-react";
 
 const HOLD_MS = 3000;
 const SLIDE_MS = 900;
@@ -16,7 +16,7 @@ export function AtlasPreview({ onOpen }: { onOpen: () => void }) {
   const root = useRef<HTMLElement>(null);
   const [slide, setSlide] = useState({ current: 0, previous: null as number | null, sequence: 0 });
   const [visible, setVisible] = useState(false), [pageVisible, setPageVisible] = useState(true);
-  const [paused, setPaused] = useState(false), [reducedMotion, setReducedMotion] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const updateMotion = () => setReducedMotion(media.matches);
@@ -38,27 +38,27 @@ export function AtlasPreview({ onOpen }: { onOpen: () => void }) {
     return () => clearTimeout(timer);
   }, [slide.sequence, slide.previous, reducedMotion]);
   useEffect(() => {
-    if (!visible || !pageVisible || paused || reducedMotion || slide.previous !== null) return;
+    if (!visible || !pageVisible || reducedMotion || slide.previous !== null) return;
     // 切换结束后再完整停留3秒，切换动画的900ms不占阅读时间。
     const timer = setTimeout(() => setSlide(old => ({ current: (old.current + 1) % careers.length, previous: old.current, sequence: old.sequence + 1 })), HOLD_MS);
     return () => clearTimeout(timer);
-  }, [visible, pageVisible, paused, reducedMotion, slide.current, slide.previous, slide.sequence]);
+  }, [visible, pageVisible, reducedMotion, slide.current, slide.previous, slide.sequence]);
   return <section ref={root} className="product-showcase" aria-labelledby="showcase-title">
-    <div className="showcase-heading" data-reveal="visible"><span className="eyebrow muted"><span className="section-index">02</span>先翻看一份职业图鉴</span><h2 id="showcase-title">看清要求，再决定下一步</h2><p>技能、招聘依据和学习计划，在同一处连接起来。</p></div>
+    <div className="showcase-heading" data-reveal="visible"><span className="eyebrow muted"><span className="section-index">02</span>先翻看一份职业图鉴</span><h2 id="showcase-title">看清要求，再决定下一步</h2></div>
     <button type="button" className="showcase-stage" data-reveal="visible" onClick={onOpen} aria-label="打开演示技能图鉴，体验完整流程">
       <div className="showcase-ambient" aria-hidden="true" />
       <div className="preview-carousel-viewport" aria-hidden="true">
         {slide.previous !== null && <div key={`out-${slide.sequence}`} className="preview-carousel-slide is-leaving"><PreviewCard career={careers[slide.previous]} /></div>}
         <div key={`in-${slide.sequence}`} className={`preview-carousel-slide${slide.previous !== null ? " is-entering" : ""}`}><PreviewCard career={careers[slide.current]} /></div>
       </div>
-      <span className="showcase-open">体验完整图鉴<span><ArrowUpRight size={17} /></span></span>
+
     </button>
     <div className="preview-carousel-controls" role="group" aria-label="职业预览轮播">
       <div className="preview-carousel-dots">{careers.map((career, index) => <button key={career.role} type="button" aria-label={`查看${career.role}预览`} aria-pressed={slide.current === index} className={slide.current === index ? "is-current" : ""} onClick={() => select(index)}><span /></button>)}</div>
       <span className="preview-carousel-label" aria-live="off">{careers[slide.current].role}</span>
-      <button type="button" className="preview-carousel-pause" aria-label={paused || reducedMotion ? "播放职业轮播" : "暂停职业轮播"} disabled={reducedMotion} onClick={() => setPaused(value => !value)}>{paused || reducedMotion ? <Play size={12} /> : <Pause size={12} />}</button>
+
     </div>
-    <p className="showcase-caption" data-reveal="visible">功能预览 · 演示内容，不代表真实招聘结论</p>
+
   </section>;
 }
 

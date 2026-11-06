@@ -80,3 +80,7 @@
 .journey-section .mini-chip{background:#242429;border-color:#484850;color:#dddde4}
 .journey-section .mini-check{background:#29292e;color:#eee;border-color:#53535d}
 @media(max-width:720px){.journey-section .journey-card{display:grid;grid-template-columns:116px minmax(0,1fr);gap:20px;padding:24px 0;border-top:1px solid var(--atlas-line)}.journey-section .card-art{height:154px;align-self:start}.journey-section .mini-document{width:88px;height:76px;padding:13px 9px}.journey-section .mini-document>svg:first-child{left:10px}.journey-section .mini-document i{width:37px}.journey-section .mini-document i:nth-child(3){width:28px}.journey-section .mini-document i:nth-child(4){width:58px}.journey-section .mini-chip{right:-7px;font-size:9px;padding:2px 7px}.journey-section .mini-check{right:-7px;width:25px;height:25px}.journey-section .art-circle{left:calc(50% - 62px);width:124px;height:124px;top:20px}.journey-section .step-number{right:10px;top:8px;font-size:14px}.journey-section .journey-card-body{padding:0}}
+
+/* 已移除预览下方入口，收起其预留间距。 */
+.atlas-app .showcase-stage{padding-bottom:0}
+.hero-intro>h1:first-child{margin-top:0}
