@@ -1,6 +1,8 @@
 import {z} from "zod";
 import {canonicalUrl,normalize,sourceQuote,blockedContent} from "./analysis.ts";
-export type InterviewQuestion={id:string;question:string;originalQuestion:string;answer:string;skills:string[];difficulty:string;sourceUrl:string;sourceTitle:string;sourceKind:"public_question"|"reported_interview";reportQuote:string;license:string;verifiedAt:string};
+export const PRACTICE_CATEGORIES=["基础","项目","实操","场景"] as const;
+export type PracticeCategory=typeof PRACTICE_CATEGORIES[number];
+export type InterviewQuestion={id:string;question:string;originalQuestion:string;answer:string;skills:string[];difficulty:string;sourceUrl:string;sourceTitle:string;sourceKind:"public_question"|"reported_interview"|"ai_generated";reportQuote:string;license:string;verifiedAt:string;category:PracticeCategory;material:string;requirements:string[]};
 export type InterviewResult={topicId:string;role:string;skills:string[];questions:InterviewQuestion[];storage:"database"|"mixed"|"live";warnings:string[];audit?:{searches:number;read:number;failed:number;accepted:number}};
 export const QUESTION_DOMAINS=["github.com","raw.githubusercontent.com","frontendinterviewhandbook.com","techinterviewhandbook.org","nowcoder.com","juejin.cn","csdn.net","zhihu.com","indeed.com","workable.com","betterteam.com"];
 export function questionUrl(raw:string){const url=canonicalUrl(raw);if(!url)return null;const u=new URL(url);return QUESTION_DOMAINS.some(host=>u.hostname===host||u.hostname.endsWith(`.${host}`))&&!/\/(?:login|signin|signup|search)(?:[/?]|$)/i.test(u.pathname)?url:null;}

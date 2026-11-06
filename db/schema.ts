@@ -55,6 +55,7 @@ export const interviewQuestions=sqliteTable("interview_questions",{
   skills:text("skills_json").notNull(),roles:text("roles_json").notNull(),difficulty:text("difficulty").notNull(),
   sourceUrl:text("source_url").notNull(),sourceTitle:text("source_title").notNull(),sourceKind:text("source_kind").notNull(),reportQuote:text("report_quote").notNull(),license:text("license").notNull(),sourceHash:text("source_hash").notNull(),
   verifiedAt:text("verified_at").notNull(),createdAt:text("created_at").notNull(),
+  practice:text("practice_json").notNull().default("{}"),
 },table=>[index("interview_verified").on(table.verifiedAt)]);
 export const interviewTopics=sqliteTable("interview_topics",{
   id:text("id").primaryKey(),role:text("role").notNull(),skills:text("skills_json").notNull(),jobIds:text("job_ids_json").notNull(),updatedAt:text("updated_at").notNull(),nextSearchAt:text("next_search_at"),

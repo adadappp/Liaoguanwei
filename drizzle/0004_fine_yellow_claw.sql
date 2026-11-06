@@ -1,0 +1,1 @@
+ALTER TABLE `interview_questions` ADD `practice_json` text DEFAULT '{}' NOT NULL;

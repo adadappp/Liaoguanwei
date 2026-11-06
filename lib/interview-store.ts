@@ -1,8 +1,8 @@
 import {hash,iso,later,readCache,topicId,type Query} from "./job-store.ts";
 import {normalizeRole} from "./job-taxonomy.ts";
 import {readRoleIntent} from "./role-intent.ts";
-import {questionUrl,sourceLicense,type InterviewQuestion,type QuestionDraft,type QuestionDocument} from "./interview.ts";
-type Row={id:string;question:string;original_question:string;answer:string;skills_json:string;roles_json:string;difficulty:string;source_url:string;source_title:string;source_kind:"public_question"|"reported_interview";report_quote:string;license:string;verified_at:string};
+import {PRACTICE_CATEGORIES,questionUrl,sourceLicense,type InterviewQuestion,type QuestionDraft,type QuestionDocument} from "./interview.ts";
+type Row={id:string;question:string;original_question:string;answer:string;skills_json:string;roles_json:string;difficulty:string;source_url:string;source_title:string;source_kind:InterviewQuestion["sourceKind"];report_quote:string;license:string;verified_at:string;practice_json:string};
 export async function interviewContext(db:D1Database,input:Query,jobIds:string[]){
   const analysis=await readCache(db,input),wanted=new Set(jobIds),jobs=analysis.jobs.filter(job=>wanted.has(job.id));
   if(!jobs.length||jobs.length!==wanted.size)throw new Error("相关职位尚未完整入库或已需复核，请重新搜索岗位后再查看面试题。");
@@ -17,9 +17,12 @@ export async function readInterviewQuestions(db:D1Database,id:string,role:string
   const questions:InterviewQuestion[]=[];
   for(const row of rows.results)try{
     const tags=JSON.parse(row.skills_json) as string[],roles=JSON.parse(row.roles_json) as string[];
-    if(!questionUrl(row.source_url)||!Array.isArray(tags)||!Array.isArray(roles)||!roles.includes(normalizeRole(role))||!tags.some(tag=>skills.includes(tag)))continue;
-    questions.push({id:row.id,question:row.question,originalQuestion:row.original_question,answer:row.answer,skills:tags.filter(tag=>skills.includes(tag)),difficulty:row.difficulty,sourceUrl:row.source_url,sourceTitle:row.source_title,sourceKind:row.source_kind,reportQuote:row.report_quote,license:row.license,verifiedAt:row.verified_at});
-    if(questions.length>=10)break;
+    const ai=row.source_kind==="ai_generated";
+    if((!ai&&!questionUrl(row.source_url))||!Array.isArray(tags)||!Array.isArray(roles)||!roles.includes(normalizeRole(role))||!tags.some(tag=>skills.includes(tag)))continue;
+    const meta=JSON.parse(row.practice_json||"{}");
+    const category=PRACTICE_CATEGORIES.includes(meta.category)?meta.category:"基础";
+    questions.push({id:row.id,question:row.question,originalQuestion:ai?"":row.original_question,answer:row.answer,skills:tags.filter(tag=>skills.includes(tag)),difficulty:row.difficulty,sourceUrl:ai?"":row.source_url,sourceTitle:ai?"AI 原创练习":row.source_title,sourceKind:row.source_kind,reportQuote:ai?"":row.report_quote,license:row.license,verifiedAt:row.verified_at,category,material:typeof meta.material==="string"?meta.material:"",requirements:Array.isArray(meta.requirements)?meta.requirements.filter((x:unknown)=>typeof x==="string").slice(0,5):[]});
+    if(questions.length>=30)break;
   }catch{/* 损坏题目不参与展示 */}
   return questions;
 }
