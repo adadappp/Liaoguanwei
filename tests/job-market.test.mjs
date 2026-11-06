@@ -4,7 +4,7 @@ import {registerHooks} from 'node:module';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync,readdirSync} from 'node:fs';
 import {salaryRange,matchesSalary,postingFresh,MarketInput} from '../lib/job-market.ts';
-import {TRACKER_KEY,writeTracked,parseTrackerBackup,trackerBackup,mergeTracked} from '../lib/job-tracker.ts';
+import {TRACKER_KEY,writeTracked,parseTracked,parseTrackerBackup,trackerBackup,mergeTracked,deleteTracked,restoreTracked} from '../lib/job-tracker.ts';
 globalThis.__marketEnv={SEARCH_PROVIDER:'deepseek',MODEL_API_KEY:'test-key',MODEL_NAME:'deepseek-flash',MODEL_API_URL:'https://api.deepseek.com/chat/completions'};
 registerHooks({resolve(specifier,context,next){if(specifier==='cloudflare:workers')return {url:'data:text/javascript,export const env=globalThis.__marketEnv',shortCircuit:true};if(specifier.startsWith('@/'))return next(new URL('../'+specifier.slice(2)+'.ts',import.meta.url).href,context);return next(specifier,context);}});
 const {marketDetails,findMarketJobs,readMarketListings,marketDetail}=await import('../lib/job-market-service.ts');
@@ -62,4 +62,20 @@ test('找工作保存回读失败不写长期成功退避，不冒称搜索成�
 });
 test('同一正文的复核时间更新不使已保存职位消失，24小时时效仍保留',async()=>{
   const {db,sqlite}=database();globalThis.__marketEnv.DB=db;const old=globalThis.fetch;globalThis.fetch=mockedFetch({search:0,read:0,model:0});try{const first=await findMarketJobs(db,input,new AbortController().signal),id=first.jobs[0].id;sqlite.prepare('UPDATE job_documents SET verified_at=? WHERE id=?').run(new Date(Date.now()+1000).toISOString(),id);assert.equal((await readMarketListings(db)).length,1);assert.equal((await marketDetail(db,id)).posting.availability,'apply_signal');sqlite.exec("UPDATE market_listings SET expires_at='2000-01-01'");assert.equal((await readMarketListings(db)).length,0);}finally{globalThis.fetch=old;}
+});
+test('删除记录后可跨刷新恢复，备注/阶段/面试安排及旧版备份均不丢失',()=>{
+  const posting={...marketDetails(analysis,[{id:'j1',url,title,body,verified:true}],[draft],title)[0],id:'a'.repeat(64)};
+  const original=parseTracked([{posting,stage:'面试中',note:'保留项目复盘内容',interviewAt:'2026-11-09T10:30',updatedAt:new Date().toISOString()}]);
+  const removed=deleteTracked(original,posting.id);assert.equal(removed.filter(r=>!r.deletedAt).length,0);assert.equal(original[0].deletedAt,undefined);assert.ok(removed[0].deletedAt);assert.deepEqual(deleteTracked(removed,posting.id),removed);
+  let value=null;const storage={getItem(){return value;},setItem(key,next){assert.equal(key,TRACKER_KEY);value=next;}};writeTracked(storage,removed,null);
+  const reloaded=parseTracked(JSON.parse(value));assert.deepEqual(restoreTracked(reloaded,posting.id),original);const backup=trackerBackup(reloaded);assert.equal(backup.version,2);assert.deepEqual(parseTrackerBackup(backup),removed);
+  assert.deepEqual(parseTrackerBackup({format:'career-atlas-job-tracker',version:1,records:original}),original);
+  assert.deepEqual(mergeTracked(removed,original),removed); // 导入旧备份不悄悄复活已删除记录。
+  const cleared=reloaded.filter(r=>!r.deletedAt);assert.equal(cleared.length,0);assert.equal(original[0].note,'保留项目复盘内容');
+});
+test('删除释放正常记录名额；满额时恢复不得覆盖现有记录',()=>{
+  const posting={...marketDetails(analysis,[{id:'j1',url,title,body,verified:true}],[draft],title)[0]};
+  const records=Array.from({length:100},(_,i)=>({posting:{...posting,id:i.toString(16).padStart(64,'0')},stage:'收藏',note:`记录${i}`,interviewAt:'',updatedAt:new Date().toISOString()}));
+  const removed=deleteTracked(records,records[0].posting.id),newRecord={...records[0],posting:{...posting,id:'f'.repeat(64)},note:'新收藏'};
+  const combined=parseTracked([...removed,newRecord]);assert.equal(combined.filter(r=>!r.deletedAt).length,100);assert.throws(()=>restoreTracked(combined,records[0].posting.id),/100条/);assert.equal(combined.at(-1).note,'新收藏');assert.ok(combined[0].deletedAt);
 });
