@@ -114,3 +114,9 @@ test('练习接口拒绝跨站写入、客户端评分依据注入和超长答�
   assert.equal((await practiceApi.POST(request({action:'expand',topicId:'f'.repeat(64),skills:['伪造技能']}))).status,400);
   assert.equal((await practiceApi.POST(request({action:'feedback',topicId:'f'.repeat(64),questionId:'e'.repeat(64),answer:'x'.repeat(6001)}))).status,400);
 });
+test('真实诊断的五条建议结构可读，仍拒绝评分字段及超量内容',()=>{
+  const sample={observations:['作答观察'],gaps:Array(5).fill('待补充或核实'),suggestions:Array(5).fill('具体修改建议'),followUp:'你如何验证边界条件？'};
+  assert.equal(PracticeFeedback.safeParse(sample).success,true);
+  assert.equal(PracticeFeedback.safeParse({...sample,score:80}).success,false);
+  assert.equal(PracticeFeedback.safeParse({...sample,suggestions:Array(7).fill('过量建议')}).success,false);
+});
