@@ -63,3 +63,9 @@ export const interviewTopics=sqliteTable("interview_topics",{
 export const interviewLinks=sqliteTable("interview_question_links",{
   topicId:text("topic_id").notNull().references(()=>interviewTopics.id,{onDelete:"cascade"}),questionId:text("question_id").notNull().references(()=>interviewQuestions.id,{onDelete:"cascade"}),
 },table=>[primaryKey({columns:[table.topicId,table.questionId]})]);
+export const marketListings=sqliteTable("market_listings",{
+  jobId:text("job_id").primaryKey().references(()=>jobs.id),data:text("data_json").notNull(),checkedAt:text("checked_at").notNull(),expiresAt:text("expires_at").notNull(),availability:text("availability").notNull(),
+},table=>[index("market_fresh").on(table.expiresAt,table.availability)]);
+export const marketQueries=sqliteTable("market_queries",{
+  id:text("id").primaryKey(),query:text("query_json").notNull(),jobIds:text("job_ids_json").notNull().default("[]"),nextSearchAt:text("next_search_at").notNull(),updatedAt:text("updated_at").notNull(),
+});

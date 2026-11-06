@@ -9,6 +9,7 @@ import "./refinements.css";
 import "./timetable.css";
 import "./notebook.css";
 import "./interview.css";
+import "./jobs.css";
 
 export const metadata: Metadata = {
   title: "求职学习图鉴 · 把方向变成下一步",
